@@ -2,7 +2,7 @@
 - git:
     local-name: descartes_capability
     uri: https://github.com/PickNikRobotics/descartes_capability.git
-    version: master
+    version: noetic-devel
 
 - git:
     local-name: descartes
