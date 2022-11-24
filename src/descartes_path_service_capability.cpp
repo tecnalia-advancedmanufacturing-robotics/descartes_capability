@@ -287,6 +287,8 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
 {
   ROS_INFO_NAMED(name_, "Received request to compute Descartes path");
 
+  ROS_INFO_STREAM("Getting parameters from " << nh_.getNamespace() << "/descartes_params");
+
   // Since Descartes takes in more parameters than are available in the moveit_msgs::GetCartesianPath::Request,
   // we provide rosparam interfaces that will read in additional prameters from the parameter server.
   nh_.param<double>("descartes_params/positional_tolerance", positional_tolerance_, 0.0);
