@@ -365,12 +365,11 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   bool no_transform =
       req.header.frame_id.empty() || robot_state::Transforms::sameFrame(req.header.frame_id, default_frame);
 
-  EigenSTL::vector_Isometry3d waypoints(req.waypoints.size() + 1);
-  waypoints[0] = current_pose;
+  EigenSTL::vector_Isometry3d waypoints(req.waypoints.size());
   if (no_transform)
   {
     for (std::size_t i = 0; i < req.waypoints.size(); ++i)
-      tf::poseMsgToEigen(req.waypoints[i], waypoints[i + 1]);
+      tf::poseMsgToEigen(req.waypoints[i], waypoints[i]);
   }
   else
   {
