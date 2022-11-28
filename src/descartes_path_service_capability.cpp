@@ -423,7 +423,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   std::vector<descartes_core::TrajectoryPtPtr> descartes_trajectory;
   descartes_core::TrajectoryPtPtr descartes_point =
       descartes_core::TrajectoryPtPtr(new descartes_trajectory::JointTrajectoryPt(current_joints));
-  descartes_trajectory.push_back(descartes_point);
+  // descartes_trajectory.push_back(descartes_point);
   createDescartesTrajectory(dense_waypoints, descartes_trajectory);
 
   // Use Descartes to solve path
