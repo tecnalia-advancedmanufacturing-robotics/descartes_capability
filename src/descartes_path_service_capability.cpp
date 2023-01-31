@@ -449,7 +449,8 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   }
 
   // removing current pose from descartes_result (only was there to minimize its difference)
-  descartes_result.erase(descartes_result.begin());
+  if (valid_path)
+    descartes_result.erase(descartes_result.begin());
   if (valid_path && verbose_debug_)
     ROS_INFO_STREAM_NAMED(name_, "Full path length = " << descartes_result.size());
 
