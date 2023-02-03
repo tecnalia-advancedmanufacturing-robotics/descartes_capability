@@ -365,11 +365,12 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   bool no_transform =
       req.header.frame_id.empty() || robot_state::Transforms::sameFrame(req.header.frame_id, default_frame);
 
-  EigenSTL::vector_Isometry3d waypoints(req.waypoints.size());
+  EigenSTL::vector_Isometry3d waypoints(req.waypoints.size() + 1);
+  waypoints[0] = current_pose;
   if (no_transform)
   {
     for (std::size_t i = 0; i < req.waypoints.size(); ++i)
-      tf::poseMsgToEigen(req.waypoints[i], waypoints[i]);
+      tf::poseMsgToEigen(req.waypoints[i], waypoints[i + 1]);
   }
   else
   {
@@ -421,8 +422,6 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   // dense trajectory. This tells descartes to plan from this particular configuration rather
   // than just the starting end effector pose.
   std::vector<descartes_core::TrajectoryPtPtr> descartes_trajectory;
-  // This adds the current joints as the first pose, only to minimize the difference from the current pose,
-  // should be later removed from descartes_result
   descartes_core::TrajectoryPtPtr descartes_point =
       descartes_core::TrajectoryPtPtr(new descartes_trajectory::JointTrajectoryPt(current_joints));
   descartes_trajectory.push_back(descartes_point);
@@ -448,9 +447,6 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
     ROS_INFO_STREAM_NAMED(name_, "Could not retrieve path.");
   }
 
-  // removing current pose from descartes_result (only was there to minimize its difference)
-  if (valid_path)
-    descartes_result.erase(descartes_result.begin());
   if (valid_path && verbose_debug_)
     ROS_INFO_STREAM_NAMED(name_, "Full path length = " << descartes_result.size());
 
