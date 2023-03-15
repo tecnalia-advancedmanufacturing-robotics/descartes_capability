@@ -311,6 +311,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
     if (!initializeDescartesModel(req.group_name, world_frame, req.link_name))
       return false;
   }
+  descartes_model_->setCheckCollisions(req.avoid_collisions);
 
   // Setup Descartes parameters
   descartes_planner::DensePlanner descartes_planner;
