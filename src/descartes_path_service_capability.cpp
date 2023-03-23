@@ -47,6 +47,7 @@
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit/robot_state/conversions.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
+#include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 
 namespace descartes_capability
@@ -466,7 +467,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
 
   // Time trajectory
   // TODO optionally compute timing to move the eef with constant speed
-  trajectory_processing::IterativeParabolicTimeParameterization time_param;
+  trajectory_processing::TimeOptimalTrajectoryGeneration time_param;
   time_param.computeTimeStamps(robot_trajectory);
   if (verbose_debug_)
   {
