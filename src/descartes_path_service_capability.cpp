@@ -48,6 +48,7 @@
 #include <moveit/robot_state/conversions.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 #include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
+#include <moveit/trajectory_processing/limit_cartesian_speed.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 
 namespace descartes_capability
@@ -466,9 +467,16 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   res.fraction = copyDescartesResultToRobotTrajectory(descartes_result, req, robot_trajectory);
 
   // Time trajectory
-  // TODO optionally compute timing to move the eef with constant speed
   trajectory_processing::TimeOptimalTrajectoryGeneration time_param;
   time_param.computeTimeStamps(robot_trajectory);
+
+  // optionally compute timing to move the eef with constant speed
+  if (req.max_cartesian_speed > 0.0)
+  {
+    trajectory_processing::limitMaxCartesianLinkSpeed(robot_trajectory, req.max_cartesian_speed,
+                                                      req.cartesian_speed_limited_link);
+  }
+
   if (verbose_debug_)
   {
     std::deque<double> durations = robot_trajectory.getWayPointDurations();
