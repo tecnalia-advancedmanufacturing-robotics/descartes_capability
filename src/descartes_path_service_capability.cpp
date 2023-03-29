@@ -102,13 +102,26 @@ void MoveGroupDescartesPathService::createDensePath(const Eigen::Isometry3d& sta
   // TODO: There's a lot of casting being done. This could probably be pruned down
   const Eigen::Quaterniond start_quaternion(start.rotation());
   const Eigen::Quaterniond end_quaternion(end.rotation());
+  const double quaternion_distance = start_quaternion.angularDistance(end_quaternion) / (2.0 * M_PI);
 
   const Eigen::Vector3d start_translation = start.translation();
   const Eigen::Vector3d end_translation = end.translation();
+  Eigen::Vector3d translation_diff = end_translation - start_translation;
+  const double translation_distance = translation_diff.norm();
 
-  const double distance = (start_translation - end_translation).norm();
-  const double step_size = max_step / distance;
+  // Ideally we would use a different variable like max_angular_step, but that is not available in the moveit_msgs::GetCartesianPath request
+  const double step_size = std::min(max_step / translation_distance, max_step / quaternion_distance);
 
+  if (step_size < 1.0)
+  {
+    ROS_DEBUG_STREAM("quaternion_distance: " << quaternion_distance << " revolutions");
+    ROS_DEBUG_STREAM("translation_distance: " << translation_distance << " meters");
+  }
+  else
+  {
+    dense_waypoints.push_back(end);
+    return;
+  }
   // Start from the second point and go all the way to the end. This is important
   // for multiple waypoint trajectories to ensure no duplicate points and that the
   // path ends at the last waypoint
@@ -118,7 +131,7 @@ void MoveGroupDescartesPathService::createDensePath(const Eigen::Isometry3d& sta
       t = 1.0;  // Ensure last step is at exactly 1.0
 
     Eigen::Isometry3d eigen_pose;
-    eigen_pose.translation() = (end_translation - start_translation) * t + start_translation;
+    eigen_pose.translation() = translation_diff * t + start_translation;
     eigen_pose.linear() = start_quaternion.slerp(t, end_quaternion).toRotationMatrix();
 
     dense_waypoints.push_back(eigen_pose);
@@ -395,7 +408,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
 
   bool global_frame = !robot_state::Transforms::sameFrame(link_name, req.header.frame_id);
   ROS_INFO_NAMED(name_,
-                 "Attempting to follow %u waypoints for link '%s' using a step of %lf m and jump threshold %lf (in "
+                 "Attempting to follow %u waypoints for link '%s' using a step of %lf m+rev and jump threshold %lf (in "
                  "%s reference frame)",
                  (unsigned int)waypoints.size(), link_name.c_str(), req.max_step, req.jump_threshold,
                  global_frame ? "global" : "link");
