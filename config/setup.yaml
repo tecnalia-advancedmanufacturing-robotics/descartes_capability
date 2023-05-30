@@ -10,6 +10,7 @@ move_group:
     pitch_orientation_tolerance: 0.1
     yaw_orientation_tolerance: 0.0
     orientation_tolerance_inc: 0.1
+    angular_distance_weight: 0.0
 
     debug:
       visual: false

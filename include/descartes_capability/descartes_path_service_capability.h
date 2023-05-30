@@ -81,7 +81,7 @@ private:
   double computeMaxJointDelta(const std::vector<double>& joints1, const std::vector<double>& joints2);
 
   /** \brief Interpolates between start and end poses and appends them to deense_waypoints **/
-  static void createDensePath(const Eigen::Isometry3d& start, const Eigen::Isometry3d& end, double max_step,
+  void createDensePath(const Eigen::Isometry3d& start, const Eigen::Isometry3d& end, double max_step,
                               EigenSTL::vector_Isometry3d& dense_waypoints);
 
   /** \brief Transforms each point in a vector of affine**/
@@ -114,6 +114,7 @@ private:
   double pitch_orientation_tolerance_;
   double yaw_orientation_tolerance_;
   double orientation_tolerance_increment_;
+  double angular_distance_weight_;
 
   bool verbose_debug_;
   bool visual_debug_;

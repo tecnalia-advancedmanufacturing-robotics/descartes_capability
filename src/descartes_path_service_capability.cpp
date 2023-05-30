@@ -62,6 +62,7 @@ MoveGroupDescartesPathService::MoveGroupDescartesPathService()
   , pitch_orientation_tolerance_(0.0)
   , yaw_orientation_tolerance_(0.0)
   , orientation_tolerance_increment_(0.0)
+  , angular_distance_weight_(0.0)
   , verbose_debug_(false)
   , visual_debug_(false)
   , display_computed_paths_(true)
@@ -106,7 +107,8 @@ void MoveGroupDescartesPathService::createDensePath(const Eigen::Isometry3d& sta
   const Eigen::Vector3d start_translation = start.translation();
   const Eigen::Vector3d end_translation = end.translation();
 
-  const double distance = (start_translation - end_translation).norm();
+  const double distance = (start_translation - end_translation).norm() +
+                          angular_distance_weight_ * start_quaternion.angularDistance(end_quaternion);
   const double step_size = max_step / distance;
 
   // Start from the second point and go all the way to the end. This is important
@@ -299,6 +301,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   nh_.param<double>("descartes_params/pitch_orientation_tolerance", pitch_orientation_tolerance_, 0.0);
   nh_.param<double>("descartes_params/yaw_orientation_tolerance", yaw_orientation_tolerance_, 0.0);
   nh_.param<double>("descartes_params/orientation_tolerance_inc", orientation_tolerance_increment_, 0.0);
+  nh_.param<double>("descartes_params/angular_distance_weight", angular_distance_weight_, 0.0);
 
   // Get most up to date planning scene information
   context_->planning_scene_monitor_->updateFrameTransforms();
