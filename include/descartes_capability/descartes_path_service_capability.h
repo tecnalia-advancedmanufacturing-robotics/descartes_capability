@@ -41,6 +41,7 @@
 #ifndef MOVEIT_MOVE_GROUP_DESCARTES_PATH_SERVICE_CAPABILITY_
 #define MOVEIT_MOVE_GROUP_DESCARTES_PATH_SERVICE_CAPABILITY_
 
+#include <unordered_map>
 #include <moveit/move_group/move_group_capability.h>
 #include <moveit_msgs/GetCartesianPath.h>
 
