@@ -472,8 +472,18 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
 
   if (!valid_path)
   {
-    ROS_INFO_STREAM_NAMED(name_, "Unable to generate a plan using Descartes.");
+    ROS_INFO_STREAM_NAMED(
+        name_, "Unable to generate a plan using Descartes. Error code: " << descartes_planner.getErrorCode());
+    switch (descartes_planner.getErrorCode())
+    {
+    case descartes_core::PlannerErrors::IK_NOT_AVAILABLE:
+      res.error_code.val = moveit_msgs::MoveItErrorCodes::NO_IK_SOLUTION;
+      break;
+
+    default:
     res.error_code.val = moveit_msgs::MoveItErrorCodes::FAILURE;
+      break;
+    }
     res.fraction = 0.0;
     return true;
   }
