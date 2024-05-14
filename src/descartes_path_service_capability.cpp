@@ -379,8 +379,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   }
 
   bool no_transform =
-      req.header.frame_id.empty() || robot_state::Transforms::sameFrame(req.header.frame_id, default_frame);
-
+      req.header.frame_id.empty() || robot_state::Transforms::sameFrame(req.header.frame_id, world_frame);
   EigenSTL::vector_Isometry3d waypoints(req.waypoints.size());
   if (no_transform)
   {
@@ -389,9 +388,9 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   }
   else
   {
-    if (!transformWaypointsToFrame(req, default_frame, waypoints))
+    if (!transformWaypointsToFrame(req, world_frame, waypoints))
     {
-      ROS_ERROR_NAMED(name_, "Error encountered transforming waypoints to frame '%s'", default_frame.c_str());
+      ROS_ERROR_NAMED(name_, "Error encountered transforming waypoints to frame '%s'", world_frame.c_str());
       res.error_code.val = moveit_msgs::MoveItErrorCodes::FRAME_TRANSFORM_FAILURE;
       return true;
     }
@@ -410,7 +409,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
                  "Attempting to follow %u waypoints for link '%s' using a step of %lf m+rev and jump threshold %lf (in "
                  "%s reference frame)",
                  (unsigned int)waypoints.size(), link_name.c_str(), req.max_step, req.jump_threshold,
-                 global_frame ? "global" : "link");
+                 global_frame ? req.header.frame_id.c_str() : "link");
 
   // For each set of sequential waypoints we need to ensure that we do not exceed the req.max_step so we resample
   EigenSTL::vector_Isometry3d dense_waypoints;
@@ -494,7 +493,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   res.fraction = copyDescartesResultToRobotTrajectory(descartes_result, req, robot_trajectory);
 
   // Time trajectory
-  trajectory_processing::TimeOptimalTrajectoryGeneration time_param;
+  trajectory_processing::IterativeParabolicTimeParameterization time_param;
   time_param.computeTimeStamps(robot_trajectory);
 
   // optionally compute timing to move the eef with constant speed
