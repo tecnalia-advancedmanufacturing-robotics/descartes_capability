@@ -493,7 +493,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   res.fraction = copyDescartesResultToRobotTrajectory(descartes_result, req, robot_trajectory);
 
   // Time trajectory
-  trajectory_processing::IterativeParabolicTimeParameterization time_param;
+  trajectory_processing::TimeOptimalTrajectoryGeneration time_param;
   time_param.computeTimeStamps(robot_trajectory);
 
   // optionally compute timing to move the eef with constant speed
