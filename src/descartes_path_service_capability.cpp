@@ -316,10 +316,11 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   // Get most up to date planning scene information
   context_->planning_scene_monitor_->updateFrameTransforms();
 
-  const std::string& default_frame = context_->planning_scene_monitor_->getRobotModel()->getModelFrame();
-
-  // TODO: check if this results in double transform.
-  std::string world_frame = (req.header.frame_id.empty() ? default_frame : req.header.frame_id);
+  const std::string& base_frame = context_->planning_scene_monitor_->getRobotModel()
+                                      ->getJointModelGroup(req.group_name)
+                                      ->getSolverInstance()
+                                      ->getBaseFrame();
+  std::string world_frame = base_frame;
   if (current_group_name_ != req.group_name || current_world_frame_ != world_frame ||
       current_tcp_frame_ != req.link_name)
   {
@@ -379,20 +380,19 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   }
 
   bool no_transform =
-      req.header.frame_id.empty() || robot_state::Transforms::sameFrame(req.header.frame_id, default_frame);
+      req.header.frame_id.empty() || robot_state::Transforms::sameFrame(req.header.frame_id, base_frame);
 
-  EigenSTL::vector_Isometry3d waypoints(req.waypoints.size() + 1);
-  waypoints[0] = current_pose;
+  EigenSTL::vector_Isometry3d waypoints(req.waypoints.size());
   if (no_transform)
   {
     for (std::size_t i = 0; i < req.waypoints.size(); ++i)
-      tf::poseMsgToEigen(req.waypoints[i], waypoints[i + 1]);
+      tf::poseMsgToEigen(req.waypoints[i], waypoints[i]);
   }
   else
   {
-    if (!transformWaypointsToFrame(req, default_frame, waypoints))
+    if (!transformWaypointsToFrame(req, base_frame, waypoints))
     {
-      ROS_ERROR_NAMED(name_, "Error encountered transforming waypoints to frame '%s'", default_frame.c_str());
+      ROS_ERROR_NAMED(name_, "Error encountered transforming waypoints to frame '%s'", base_frame.c_str());
       res.error_code.val = moveit_msgs::MoveItErrorCodes::FRAME_TRANSFORM_FAILURE;
       return true;
     }
@@ -438,6 +438,8 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   // dense trajectory. This tells descartes to plan from this particular configuration rather
   // than just the starting end effector pose.
   std::vector<descartes_core::TrajectoryPtPtr> descartes_trajectory;
+  // This adds the current joints as the first pose, only to minimize the difference from the current pose,
+  // should be later removed from descartes_result
   descartes_core::TrajectoryPtPtr descartes_point =
       descartes_core::TrajectoryPtPtr(new descartes_trajectory::JointTrajectoryPt(current_joints));
   descartes_trajectory.push_back(descartes_point);
@@ -463,13 +465,26 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
     ROS_INFO_STREAM_NAMED(name_, "Could not retrieve path.");
   }
 
+  // removing current pose from descartes_result (only was there to minimize its difference)
+  if (valid_path)
+    descartes_result.erase(descartes_result.begin());
   if (valid_path && verbose_debug_)
     ROS_INFO_STREAM_NAMED(name_, "Full path length = " << descartes_result.size());
 
   if (!valid_path)
   {
-    ROS_INFO_STREAM_NAMED(name_, "Unable to generate a plan using Descartes.");
-    res.error_code.val = moveit_msgs::MoveItErrorCodes::FAILURE;
+    ROS_INFO_STREAM_NAMED(
+        name_, "Unable to generate a plan using Descartes. Error code: " << descartes_planner.getErrorCode());
+    switch (descartes_planner.getErrorCode())
+    {
+      case descartes_core::PlannerErrors::IK_NOT_AVAILABLE:
+        res.error_code.val = moveit_msgs::MoveItErrorCodes::NO_IK_SOLUTION;
+        break;
+
+      default:
+        res.error_code.val = moveit_msgs::MoveItErrorCodes::FAILURE;
+        break;
+    }
     res.fraction = 0.0;
     return true;
   }
