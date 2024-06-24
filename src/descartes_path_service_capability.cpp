@@ -62,6 +62,7 @@ MoveGroupDescartesPathService::MoveGroupDescartesPathService()
   , pitch_orientation_tolerance_(0.0)
   , yaw_orientation_tolerance_(0.0)
   , orientation_tolerance_increment_(0.0)
+  , remove_first_point_(false)
   , verbose_debug_(false)
   , visual_debug_(false)
   , display_computed_paths_(true)
@@ -109,7 +110,8 @@ void MoveGroupDescartesPathService::createDensePath(const Eigen::Isometry3d& sta
   Eigen::Vector3d translation_diff = end_translation - start_translation;
   const double translation_distance = translation_diff.norm();
 
-  // Ideally we would use a different variable like max_angular_step, but that is not available in the moveit_msgs::GetCartesianPath request
+  // Ideally we would use a different variable like max_angular_step, but that is not available in the
+  // moveit_msgs::GetCartesianPath request
   const double step_size = std::min(max_step / translation_distance, max_step / quaternion_distance);
 
   if (step_size < 1.0)
@@ -312,6 +314,14 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   nh_.param<double>("descartes_params/pitch_orientation_tolerance", pitch_orientation_tolerance_, 0.0);
   nh_.param<double>("descartes_params/yaw_orientation_tolerance", yaw_orientation_tolerance_, 0.0);
   nh_.param<double>("descartes_params/orientation_tolerance_inc", orientation_tolerance_increment_, 0.0);
+  nh_.param<bool>("descartes_params/remove_first_point", remove_first_point_, false);
+  ROS_INFO_STREAM("positional_tolerance: " << positional_tolerance_);
+  ROS_INFO_STREAM("positional_tolerance_increment: " << positional_tolerance_increment_);
+  ROS_INFO_STREAM("roll_orientation_tolerance: " << roll_orientation_tolerance_);
+  ROS_INFO_STREAM("pitch_orientation_tolerance: " << pitch_orientation_tolerance_);
+  ROS_INFO_STREAM("yaw_orientation_tolerance: " << yaw_orientation_tolerance_);
+  ROS_INFO_STREAM("orientation_tolerance_increment: " << orientation_tolerance_increment_);
+  ROS_INFO_STREAM("remove_first_point: " << remove_first_point_);
 
   // Get most up to date planning scene information
   context_->planning_scene_monitor_->updateFrameTransforms();
@@ -398,6 +408,9 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
     }
   }
 
+  if (!remove_first_point_)
+    waypoints.insert(waypoints.begin(), current_pose);
+
   if (req.max_step < std::numeric_limits<double>::epsilon())
   {
     ROS_ERROR_NAMED(name_, "Maximum step to take between consecutive configurations along Descartes path was not "
@@ -440,9 +453,12 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   std::vector<descartes_core::TrajectoryPtPtr> descartes_trajectory;
   // This adds the current joints as the first pose, only to minimize the difference from the current pose,
   // should be later removed from descartes_result
-  descartes_core::TrajectoryPtPtr descartes_point =
-      descartes_core::TrajectoryPtPtr(new descartes_trajectory::JointTrajectoryPt(current_joints));
-  descartes_trajectory.push_back(descartes_point);
+  if (remove_first_point_)
+  {
+    descartes_core::TrajectoryPtPtr descartes_point =
+        descartes_core::TrajectoryPtPtr(new descartes_trajectory::JointTrajectoryPt(current_joints));
+    descartes_trajectory.push_back(descartes_point);
+  }
   createDescartesTrajectory(dense_waypoints, descartes_trajectory);
 
   // Use Descartes to solve path
@@ -466,7 +482,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   }
 
   // removing current pose from descartes_result (only was there to minimize its difference)
-  if (valid_path)
+  if (valid_path && remove_first_point_)
     descartes_result.erase(descartes_result.begin());
   if (valid_path && verbose_debug_)
     ROS_INFO_STREAM_NAMED(name_, "Full path length = " << descartes_result.size());

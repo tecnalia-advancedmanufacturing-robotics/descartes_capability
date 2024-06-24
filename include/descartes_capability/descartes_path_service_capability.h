@@ -115,6 +115,7 @@ private:
   double pitch_orientation_tolerance_;
   double yaw_orientation_tolerance_;
   double orientation_tolerance_increment_;
+  bool remove_first_point_;
 
   bool verbose_debug_;
   bool visual_debug_;
