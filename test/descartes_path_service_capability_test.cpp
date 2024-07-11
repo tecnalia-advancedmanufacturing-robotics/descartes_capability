@@ -79,8 +79,11 @@ TEST_F(MoveGroupDescartesPathServiceTest, TestDescartesCapabilityAvailable)
 {
   try
   {
-    pluginlib::ClassLoader<move_group::MoveGroupCapability> capability_plugin_loader("moveit_ros_move_group",
-                                                                                     "move_group::MoveGroupCapability");
+    pluginlib::ClassLoader<move_group::MoveGroupCapability> capability_plugin_loader("moveit_ros_move_group", "move_"
+                                                                                                              "group::"
+                                                                                                              "MoveGrou"
+                                                                                                              "pCapabil"
+                                                                                                              "ity");
     // Test a move_group default plugin
     EXPECT_TRUE(capability_plugin_loader.isClassAvailable("move_group/MoveGroupCartesianPathService"));
     // Test the Descartes capability
@@ -97,11 +100,15 @@ TEST_F(MoveGroupDescartesPathServiceTest, TestDescartesCapabilityCreation)
 {
   try
   {
-    pluginlib::ClassLoader<move_group::MoveGroupCapability> capability_plugin_loader("moveit_ros_move_group",
-                                                                                     "move_group::MoveGroupCapability");
+    pluginlib::ClassLoader<move_group::MoveGroupCapability> capability_plugin_loader("moveit_ros_move_group", "move_"
+                                                                                                              "group::"
+                                                                                                              "MoveGrou"
+                                                                                                              "pCapabil"
+                                                                                                              "ity");
 
-    move_group::MoveGroupCapabilityPtr cap =
-        capability_plugin_loader.createUniqueInstance("descartes_capability/MoveGroupDescartesPathService");
+    move_group::MoveGroupCapabilityPtr cap = capability_plugin_loader.createUniqueInstance("descartes_capability/"
+                                                                                           "MoveGroupDescartesPathServi"
+                                                                                           "ce");
 
     EXPECT_EQ("DescartesPathService", cap->getName());
   }
@@ -116,17 +123,22 @@ TEST_F(MoveGroupDescartesPathServiceTest, TestDescartesCapabilityInitialize)
 {
   try
   {
-    pluginlib::ClassLoader<move_group::MoveGroupCapability> capability_plugin_loader("moveit_ros_move_group",
-                                                                                     "move_group::MoveGroupCapability");
+    pluginlib::ClassLoader<move_group::MoveGroupCapability> capability_plugin_loader("moveit_ros_move_group", "move_"
+                                                                                                              "group::"
+                                                                                                              "MoveGrou"
+                                                                                                              "pCapabil"
+                                                                                                              "ity");
 
     bool allow_trajectory_execution = false;
     bool debug = false;
-    planning_scene_monitor::PlanningSceneMonitorPtr psm(
-        new planning_scene_monitor::PlanningSceneMonitor("robot_description"));
+    planning_scene_monitor::PlanningSceneMonitorPtr psm(new planning_scene_monitor::PlanningSceneMonitor("robot_"
+                                                                                                         "descriptio"
+                                                                                                         "n"));
     move_group::MoveGroupContextPtr context(new move_group::MoveGroupContext(psm, allow_trajectory_execution, debug));
 
-    move_group::MoveGroupCapabilityPtr cap =
-        capability_plugin_loader.createUniqueInstance("descartes_capability/MoveGroupDescartesPathService");
+    move_group::MoveGroupCapabilityPtr cap = capability_plugin_loader.createUniqueInstance("descartes_capability/"
+                                                                                           "MoveGroupDescartesPathServi"
+                                                                                           "ce");
 
     EXPECT_TRUE(capability_plugin_loader.isClassLoaded("descartes_capability/MoveGroupDescartesPathService"));
     cap->setContext(context);

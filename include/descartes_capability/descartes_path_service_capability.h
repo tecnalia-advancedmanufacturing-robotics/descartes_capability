@@ -43,7 +43,7 @@
 
 #include <unordered_map>
 #include <moveit/move_group/move_group_capability.h>
-#include <moveit_msgs/GetCartesianPath.h>
+#include "moveit_msgs/srv/get_cartesian_path.hpp"
 
 // Descartes
 #include <descartes_core/robot_model.h>
@@ -55,8 +55,7 @@
 #include <descartes_trajectory/cart_trajectory_pt.h>
 
 // Eigen
-#include <eigen_conversions/eigen_msg.h>
-#include <tf_conversions/tf_eigen.h>
+#include <tf2_eigen/tf2_eigen.hpp>
 #include <Eigen/Core>
 
 // Visualization
@@ -72,7 +71,9 @@ public:
   virtual void initialize();
 
 private:
-  bool computeService(moveit_msgs::GetCartesianPath::Request& req, moveit_msgs::GetCartesianPath::Response& res);
+  bool computeService(const std::shared_ptr<rmw_request_id_t>& request_header,
+                      const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Request>& req,
+                      const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Response>& res);
 
   /** \brief Initializes descartes_model_ with new parameters **/
   bool initializeDescartesModel(const std::string& group_name, const std::string& world_frame,
@@ -82,27 +83,27 @@ private:
   double computeMaxJointDelta(const std::vector<double>& joints1, const std::vector<double>& joints2);
 
   /** \brief Interpolates between start and end poses and appends them to deense_waypoints **/
-  static void createDensePath(const Eigen::Isometry3d& start, const Eigen::Isometry3d& end, double max_step,
-                              EigenSTL::vector_Isometry3d& dense_waypoints);
+  void createDensePath(const Eigen::Isometry3d& start, const Eigen::Isometry3d& end, double max_step,
+                       EigenSTL::vector_Isometry3d& dense_waypoints);
 
   /** \brief Transforms each point in a vector of affine**/
   void createDescartesTrajectory(const EigenSTL::vector_Isometry3d& dense_waypoints,
                                  std::vector<descartes_core::TrajectoryPtPtr>& input_descartes_trajectory);
 
   /** \brief Transforms each waypoint in the request to the target frame **/
-  bool transformWaypointsToFrame(const moveit_msgs::GetCartesianPath::Request& req, const std::string& target_frame,
-                                 EigenSTL::vector_Isometry3d& waypoints);
+  bool transformWaypointsToFrame(const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Request>& req,
+                                 const std::string& target_frame, EigenSTL::vector_Isometry3d& waypoints);
 
   /** \brief Takes in a trajectory computed by Descartes and populates the robot_trajectory**/
   double copyDescartesResultToRobotTrajectory(const std::vector<descartes_core::TrajectoryPtPtr>& descartes_result,
-                                              const moveit_msgs::GetCartesianPath::Request& req,
+                                              const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Request>& req,
                                               robot_trajectory::RobotTrajectory& robot_trajectory);
 
   void printDelta(const std::vector<double>& joints1, const std::vector<double>& joints2);
   void printJoints(const std::vector<double>& joints);
   void printJointsNamed(const std::string& name, const std::vector<double>& joints);
 
-  ros::NodeHandle nh_;
+  rclcpp::Node::SharedPtr nh_;
   std::string name_ = "descartes_path_service_capability";
 
   // For setting up and generating Cartesian trajectories with Descartes
@@ -119,7 +120,7 @@ private:
   bool verbose_debug_;
   bool visual_debug_;
 
-  ros::ServiceServer descartes_path_service_;
+  rclcpp::Service<moveit_msgs::srv::GetCartesianPath>::SharedPtr descartes_path_service_;
   bool display_computed_paths_;
 
   // Cached values for checking if we need to re-initialize our descartes_model

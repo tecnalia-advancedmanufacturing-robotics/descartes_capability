@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version='1.0' encoding='utf-8'?>
 <package format="2">
   <name>descartes_capability</name>
   <version>0.0.1</version>
@@ -13,7 +13,7 @@
   <url type="bugtracker">https://github.com/PickNikRobotics/descartes_capability/issues</url>
   <url type="repository">https://github.com/PickNikRobotics/descartes_capability/</url>
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>descartes_core</depend>
   <depend>descartes_moveit</depend>
@@ -35,6 +35,7 @@
   <test_depend>moveit_resources</test_depend>
 
   <export>
-    <moveit_ros_move_group plugin="${prefix}/descartes_capability_plugin_description.xml"/>
+    <moveit_ros_move_group plugin="${prefix}/descartes_capability_plugin_description.xml" />
+    <build_type>ament_cmake</build_type>
   </export>
 </package>
