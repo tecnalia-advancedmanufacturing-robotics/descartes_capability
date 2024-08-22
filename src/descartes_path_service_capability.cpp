@@ -68,7 +68,6 @@ MoveGroupDescartesPathService::MoveGroupDescartesPathService()
   , visual_debug_(false)
   , display_computed_paths_(true)
 {
-  nh_ = context_->moveit_cpp_->getNode();
   // logger_ = moveit::get_logger("moveit.ros.move_group.descartes_cartesian_path_service_capability");
 }
 
@@ -76,14 +75,14 @@ void MoveGroupDescartesPathService::initialize()
 {
   // Get parameters from param server
   const std::string node_name = "MoveGroupDescartesPathService";
-  nh_->get_parameter_or<bool>("descartes_params/debug/verbose", verbose_debug_, false);
-  nh_->get_parameter_or<bool>("descartes_params/debug/visual", visual_debug_, false);
+  context_->moveit_cpp_->getNode()->get_parameter_or<bool>("descartes_params/debug/verbose", verbose_debug_, false);
+  context_->moveit_cpp_->getNode()->get_parameter_or<bool>("descartes_params/debug/visual", visual_debug_, false);
 
   context_->planning_scene_monitor_->updateFrameTransforms();
 
   // For visualizing the path request
   const std::string& world_frame = context_->planning_scene_monitor_->getRobotModel()->getModelFrame();
-  visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(nh_, world_frame, "/rviz_visual_tools"));
+  visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(context_->moveit_cpp_->getNode(), world_frame, "/rviz_visual_tools"));
   if (visual_debug_)
   {
     visual_tools_->loadMarkerPub(true);
@@ -94,9 +93,9 @@ void MoveGroupDescartesPathService::initialize()
   visual_tools_->loadSharedRobotState();
   visual_tools_->loadTrajectoryPub(planning_pipeline::PlanningPipeline::DISPLAY_PATH_TOPIC, false);
 
-  // descartes_path_service_ = nh_.advertiseService(move_group::CARTESIAN_PATH_SERVICE_NAME,
+  // descartes_path_service_ = context_->moveit_cpp_->getNode().advertiseService(move_group::CARTESIAN_PATH_SERVICE_NAME,
   //  &MoveGroupDescartesPathService::computeService, this);
-  descartes_path_service_ = nh_->create_service<moveit_msgs::srv::GetCartesianPath>(
+  descartes_path_service_ = context_->moveit_cpp_->getNode()->create_service<moveit_msgs::srv::GetCartesianPath>(
       move_group::CARTESIAN_PATH_SERVICE_NAME,
       [this](const std::shared_ptr<rmw_request_id_t>& req_id,
              const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Request>& req,
@@ -124,8 +123,8 @@ void MoveGroupDescartesPathService::createDensePath(const Eigen::Isometry3d& sta
 
   if (step_size < 1.0)
   {
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "quaternion_distance: " << quaternion_distance << " revolutions");
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "translation_distance: " << translation_distance << " meters");
+    RCLCPP_DEBUG_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "quaternion_distance: " << quaternion_distance << " revolutions");
+    RCLCPP_DEBUG_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "translation_distance: " << translation_distance << " meters");
   }
   else
   {
@@ -157,7 +156,7 @@ void MoveGroupDescartesPathService::createDescartesTrajectory(
     const Eigen::Quaterniond rotation(eigen_pose.rotation());
 
     if (verbose_debug_)
-      RCLCPP_DEBUG(nh_->get_logger(), "x: %.3f\ty: %.3f\tz: %.3f\twx: %.3f\twy: %.3f\twz: %.3f\tww: %.3f\t",
+      RCLCPP_DEBUG(context_->moveit_cpp_->getNode()->get_logger(), "x: %.3f\ty: %.3f\tz: %.3f\twx: %.3f\twy: %.3f\twz: %.3f\tww: %.3f\t",
                    eigen_pose.translation().x(), eigen_pose.translation().y(), eigen_pose.translation().z(),
                    rotation.x(), rotation.y(), rotation.z(), rotation.w());
 
@@ -197,7 +196,7 @@ double MoveGroupDescartesPathService::computeMaxJointDelta(const std::vector<dou
 {
   if (joints1.size() != joints2.size())
   {
-    RCLCPP_ERROR(nh_->get_logger(), "computeMaxJointDelta received vectors of mismatched size");
+    RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "computeMaxJointDelta received vectors of mismatched size");
     return -1.0;
   }
   double max_delta = 0.0;
@@ -231,7 +230,7 @@ double MoveGroupDescartesPathService::copyDescartesResultToRobotTrajectory(
     robot_trajectory::RobotTrajectory& robot_trajectory)
 {
   if (verbose_debug_)
-    RCLCPP_DEBUG(nh_->get_logger(), "Full trajectory of length %zu", descartes_result.size());
+    RCLCPP_DEBUG(context_->moveit_cpp_->getNode()->get_logger(), "Full trajectory of length %zu", descartes_result.size());
 
   std::vector<double> next_positions;
   std::vector<double> last_positions;
@@ -259,14 +258,14 @@ double MoveGroupDescartesPathService::copyDescartesResultToRobotTrajectory(
 
     if (req->jump_threshold > 0.0 && max_delta > req->jump_threshold)
     {
-      RCLCPP_WARN(nh_->get_logger(), "Jump threshold of %.3f exceeded with requested jump of %.3f", req->jump_threshold,
+      RCLCPP_WARN(context_->moveit_cpp_->getNode()->get_logger(), "Jump threshold of %.3f exceeded with requested jump of %.3f", req->jump_threshold,
                   max_delta);
       fraction = (double)i / (double)descartes_result.size();
       joint_threshold_exceeded = true;
     }
     else if (!first_point && max_delta <= 0.00001 && req->jump_threshold > 0.0)
     {
-      RCLCPP_WARN(nh_->get_logger(), "Duplicate point found with max delta of %.6f", max_delta);
+      RCLCPP_WARN(context_->moveit_cpp_->getNode()->get_logger(), "Duplicate point found with max delta of %.6f", max_delta);
     }
     else
     {
@@ -294,7 +293,7 @@ bool MoveGroupDescartesPathService::initializeDescartesModel(const std::string& 
 
   if (!model_init)
   {
-    RCLCPP_ERROR_STREAM(nh_->get_logger(), "Could not initialize robot model.");
+    RCLCPP_ERROR_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Could not initialize robot model.");
     return false;
   }
 
@@ -313,18 +312,18 @@ bool MoveGroupDescartesPathService::computeService(
     const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Request>& req,
     const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Response>& res)
 {
-  RCLCPP_INFO(nh_->get_logger(), "Received request to compute Descartes path");
+  RCLCPP_INFO(context_->moveit_cpp_->getNode()->get_logger(), "Received request to compute Descartes path");
 
-  RCLCPP_INFO_STREAM(nh_->get_logger(), "Getting parameters from " << nh_->get_namespace() << "/descartes_params");
+  RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Getting parameters from " << context_->moveit_cpp_->getNode()->get_namespace() << "/descartes_params");
 
   // Since Descartes takes in more parameters than are available in the moveit_msgs::srv::GetCartesianPath::Request,
   // we provide rosparam interfaces that will read in additional prameters from the parameter server.
-  nh_->get_parameter_or<double>("descartes_params/positional_tolerance", positional_tolerance_, 0.0);
-  nh_->get_parameter_or<double>("descartes_params/positional_tolerance_inc", positional_tolerance_increment_, 0.0);
-  nh_->get_parameter_or<double>("descartes_params/roll_orientation_tolerance", roll_orientation_tolerance_, 0.0);
-  nh_->get_parameter_or<double>("descartes_params/pitch_orientation_tolerance", pitch_orientation_tolerance_, 0.0);
-  nh_->get_parameter_or<double>("descartes_params/yaw_orientation_tolerance", yaw_orientation_tolerance_, 0.0);
-  nh_->get_parameter_or<double>("descartes_params/orientation_tolerance_inc", orientation_tolerance_increment_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/positional_tolerance", positional_tolerance_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/positional_tolerance_inc", positional_tolerance_increment_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/roll_orientation_tolerance", roll_orientation_tolerance_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/pitch_orientation_tolerance", pitch_orientation_tolerance_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/yaw_orientation_tolerance", yaw_orientation_tolerance_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/orientation_tolerance_inc", orientation_tolerance_increment_, 0.0);
 
   // Get most up to date planning scene information
   context_->planning_scene_monitor_->updateFrameTransforms();
@@ -355,7 +354,7 @@ bool MoveGroupDescartesPathService::computeService(
     jmg = start_state.getJointModelGroup(req->group_name);
     if (jmg == nullptr)
     {
-      RCLCPP_ERROR(nh_->get_logger(), "Invalid group name");
+      RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Invalid group name");
       res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::INVALID_GROUP_NAME;
       return true;
     }
@@ -368,7 +367,7 @@ bool MoveGroupDescartesPathService::computeService(
 
   if (req->waypoints.empty())
   {
-    RCLCPP_ERROR(nh_->get_logger(), "Must provide at least 1 input trajectory point %zu provided",
+    RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Must provide at least 1 input trajectory point %zu provided",
                  req->waypoints.size());
     res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
     return true;
@@ -383,10 +382,10 @@ bool MoveGroupDescartesPathService::computeService(
 
   if (verbose_debug_)
   {
-    RCLCPP_DEBUG(nh_->get_logger(), "Starting at current pose");
+    RCLCPP_DEBUG(context_->moveit_cpp_->getNode()->get_logger(), "Starting at current pose");
 
     std::string sep = "\n-----------------------------------------------------\n";
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "current_pose\n"
+    RCLCPP_DEBUG_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "current_pose\n"
                                                << "Position: \n"
                                                << current_pose.translation() << "\nRotation: \n"
                                                << current_pose.rotation() << sep);
@@ -406,7 +405,7 @@ bool MoveGroupDescartesPathService::computeService(
   {
     if (!transformWaypointsToFrame(req, default_frame, waypoints))
     {
-      RCLCPP_ERROR(nh_->get_logger(), "Error encountered transforming waypoints to frame '%s'", default_frame.c_str());
+      RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Error encountered transforming waypoints to frame '%s'", default_frame.c_str());
       res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FRAME_TRANSFORM_FAILURE;
       return true;
     }
@@ -414,7 +413,7 @@ bool MoveGroupDescartesPathService::computeService(
 
   if (req->max_step < std::numeric_limits<double>::epsilon())
   {
-    RCLCPP_ERROR(nh_->get_logger(), "Maximum step to take between consecutive configurations along Descartes path was "
+    RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Maximum step to take between consecutive configurations along Descartes path was "
                                     "not "
                                     "specified (this value needs to be > 0)");
     res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
@@ -422,7 +421,7 @@ bool MoveGroupDescartesPathService::computeService(
   }
 
   bool global_frame = !moveit::core::Transforms::sameFrame(link_name, req->header.frame_id);
-  RCLCPP_INFO(nh_->get_logger(),
+  RCLCPP_INFO(context_->moveit_cpp_->getNode()->get_logger(),
               "Attempting to follow %u waypoints for link '%s' using a step of %lf m+rev and jump threshold %lf (in "
               "%s reference frame)",
               (unsigned int)waypoints.size(), link_name.c_str(), req->max_step, req->jump_threshold,
@@ -464,26 +463,26 @@ bool MoveGroupDescartesPathService::computeService(
   if (!descartes_planner.planPath(descartes_trajectory))
   {
     valid_path = false;
-    RCLCPP_INFO_STREAM(nh_->get_logger(), "Could not solve for a valid path.");
+    RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Could not solve for a valid path.");
   }
   else
   {
     if (verbose_debug_)
-      RCLCPP_INFO_STREAM(nh_->get_logger(), "Found a valid path.");
+      RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Found a valid path.");
   }
 
   if (!descartes_planner.getPath(descartes_result))
   {
     valid_path = false;
-    RCLCPP_INFO_STREAM(nh_->get_logger(), "Could not retrieve path.");
+    RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Could not retrieve path.");
   }
 
   if (valid_path && verbose_debug_)
-    RCLCPP_INFO_STREAM(nh_->get_logger(), "Full path length = " << descartes_result.size());
+    RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Full path length = " << descartes_result.size());
 
   if (!valid_path)
   {
-    RCLCPP_INFO_STREAM(nh_->get_logger(), "Unable to generate a plan using Descartes.");
+    RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Unable to generate a plan using Descartes.");
     res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
     res->fraction = 0.0;
     return true;
@@ -514,7 +513,7 @@ bool MoveGroupDescartesPathService::computeService(
     double total_duration = 0;
     for (double duration : durations)
       total_duration += duration;
-    RCLCPP_DEBUG(nh_->get_logger(), "Total path duration: %.3f", total_duration);
+    RCLCPP_DEBUG(context_->moveit_cpp_->getNode()->get_logger(), "Total path duration: %.3f", total_duration);
   }
 
   robot_trajectory.getRobotTrajectoryMsg(res->solution);
@@ -530,7 +529,7 @@ void MoveGroupDescartesPathService::printDelta(const std::vector<double>& joints
 {
   if (joints1.size() != joints2.size())
   {
-    RCLCPP_ERROR(nh_->get_logger(), "printDelta received vectors of mismatched size");
+    RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "printDelta received vectors of mismatched size");
     return;
   }
   std::stringstream o;
@@ -538,7 +537,7 @@ void MoveGroupDescartesPathService::printDelta(const std::vector<double>& joints
   {
     o << "\t" << std::fixed << std::setw(5) << std::setprecision(3) << joints2[i] - joints1[i];
   }
-  RCLCPP_DEBUG_STREAM(nh_->get_logger(), o.str());
+  RCLCPP_DEBUG_STREAM(context_->moveit_cpp_->getNode()->get_logger(), o.str());
 }
 
 void MoveGroupDescartesPathService::printJoints(const std::vector<double>& joints)
@@ -549,7 +548,7 @@ void MoveGroupDescartesPathService::printJoints(const std::vector<double>& joint
   {
     o << "\t" << std::fixed << std::setw(6) << std::setprecision(3) << joint;
   }
-  RCLCPP_DEBUG_STREAM(nh_->get_logger(), o.str());
+  RCLCPP_DEBUG_STREAM(context_->moveit_cpp_->getNode()->get_logger(), o.str());
 }
 
 void MoveGroupDescartesPathService::printJointsNamed(const std::string& name, const std::vector<double>& joints1)
@@ -560,9 +559,10 @@ void MoveGroupDescartesPathService::printJointsNamed(const std::string& name, co
   {
     o << "\t" << std::fixed << std::setw(6) << std::setprecision(3) << i;
   }
-  RCLCPP_DEBUG_STREAM(nh_->get_logger(), o.str());
+  RCLCPP_DEBUG_STREAM(context_->moveit_cpp_->getNode()->get_logger(), o.str());
 }
 }  // end namespace descartes_capability
 
-#include <class_loader/class_loader.hpp>
-CLASS_LOADER_REGISTER_CLASS(descartes_capability::MoveGroupDescartesPathService, move_group::MoveGroupCapability)
+
+#include <pluginlib/class_list_macros.hpp>
+PLUGINLIB_EXPORT_CLASS(descartes_capability::MoveGroupDescartesPathService, move_group::MoveGroupCapability)

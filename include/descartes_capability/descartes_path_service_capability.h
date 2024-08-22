@@ -103,7 +103,6 @@ private:
   void printJoints(const std::vector<double>& joints);
   void printJointsNamed(const std::string& name, const std::vector<double>& joints);
 
-  rclcpp::Node::SharedPtr nh_;
   std::string name_ = "descartes_path_service_capability";
 
   // For setting up and generating Cartesian trajectories with Descartes
