@@ -24,6 +24,7 @@ set(AMENT_DEPENDENCIES
   rviz_visual_tools
   # eigen_conversions
   rclcpp
+  pluginlib
 )
 foreach(DEP ${AMENT_DEPENDENCIES})
   find_package(${DEP} REQUIRED)
@@ -46,7 +47,7 @@ find_package(Eigen3 REQUIRED)
 set(INCLUDE_DIRS include ${ament_cmake_INCLUDE_DIRS})
 include_directories(${INCLUDE_DIRS})
 # Declare a C++ library with project namespace to avoid naming collision
-add_library(${PROJECT_NAME} src/descartes_path_service_capability.cpp)
+add_library(${PROJECT_NAME} SHARED src/descartes_path_service_capability.cpp)
 
 ament_target_dependencies(${PROJECT_NAME} ${AMENT_DEPENDENCIES})
 # Specify libraries to link a library or executable target against
@@ -58,12 +59,9 @@ target_link_libraries(${PROJECT_NAME} ${LIBS} ${Boost_LIBRARIES})
 
 # Mark executables and/or libraries for installation
 install(TARGETS ${PROJECT_NAME}
-  ARCHIVE
-  DESTINATION lib
-  LIBRARY
-  DESTINATION lib
-  RUNTIME
-  DESTINATION lib/${PROJECT_NAME})
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME})
 
 # Mark cpp header files for installation
 install(DIRECTORY include/${PROJECT_NAME}/
@@ -97,6 +95,7 @@ install(FILES ${PROJECT_NAME}_plugin_description.xml
 
 ## Test for correct C++ source code
 # roslint_cpp()
+pluginlib_export_plugin_description_file(moveit_ros_move_group descartes_capability_plugin_description.xml)
 
 ament_export_dependencies(descartes_core)
 ament_export_dependencies(eigen_conversions)

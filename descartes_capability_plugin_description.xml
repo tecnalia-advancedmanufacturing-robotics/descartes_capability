@@ -1,4 +1,4 @@
-<library path="libdescartes_capability">
+<library path="descartes_capability">
 
 
   <!-- To use the new Descartes path service, comment out the MoveGroupCartesianPathService capability in move_group -->
