@@ -22,7 +22,6 @@ set(AMENT_DEPENDENCIES
   moveit_msgs
   moveit_visual_tools
   rviz_visual_tools
-  # eigen_conversions
   rclcpp
   pluginlib
 )
@@ -98,7 +97,6 @@ install(FILES ${PROJECT_NAME}_plugin_description.xml
 pluginlib_export_plugin_description_file(moveit_ros_move_group descartes_capability_plugin_description.xml)
 
 ament_export_dependencies(descartes_core)
-ament_export_dependencies(eigen_conversions)
 ament_export_dependencies(moveit_core)
 ament_export_dependencies(descartes_moveit)
 ament_export_dependencies(rclpy)
