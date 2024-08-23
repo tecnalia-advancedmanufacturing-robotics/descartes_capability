@@ -92,8 +92,6 @@ install(FILES ${PROJECT_NAME}_plugin_description.xml
 
 # endif()
 
-## Test for correct C++ source code
-# roslint_cpp()
 pluginlib_export_plugin_description_file(moveit_ros_move_group descartes_capability_plugin_description.xml)
 
 ament_export_dependencies(descartes_core)
@@ -103,7 +101,6 @@ ament_export_dependencies(rclpy)
 ament_export_dependencies(ament_cmake)
 ament_export_dependencies(moveit_visual_tools)
 ament_export_dependencies(rclcpp)
-ament_export_dependencies(roslint)
 ament_export_dependencies(descartes_trajectory)
 ament_export_dependencies(descartes_planner)
 ament_export_dependencies(moveit_ros_planning)
