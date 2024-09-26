@@ -24,11 +24,16 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   roslint
   rospy
+  message_generation
 )
 
 # System dependencies are found with CMake's conventions
 find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
+
+
+add_service_files(DIRECTORY srv FILES GetFailureReason.srv)
+generate_messages()
 
 ###################################
 ## Catkin specific configuration ##
