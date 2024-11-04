@@ -53,6 +53,7 @@
 #include <descartes_planner/sparse_planner.h>
 #include <descartes_trajectory/axial_symmetric_pt.h>
 #include <descartes_trajectory/cart_trajectory_pt.h>
+#include <descartes_capability/GetFailureReason.h>
 
 // Eigen
 #include <eigen_conversions/eigen_msg.h>
@@ -73,6 +74,9 @@ public:
 
 private:
   bool computeService(moveit_msgs::GetCartesianPath::Request& req, moveit_msgs::GetCartesianPath::Response& res);
+
+  bool computeFailureReason(descartes_capability::GetFailureReason::Request& req,
+                            descartes_capability::GetFailureReason::Response& res);
 
   /** \brief Initializes descartes_model_ with new parameters **/
   bool initializeDescartesModel(const std::string& group_name, const std::string& world_frame,
@@ -107,6 +111,7 @@ private:
 
   // For setting up and generating Cartesian trajectories with Descartes
   descartes_core::RobotModelPtr descartes_model_;
+  descartes_planner::DensePlanner descartes_planner;
 
   // Params loaded from server
   double positional_tolerance_;
@@ -120,6 +125,7 @@ private:
   bool visual_debug_;
 
   ros::ServiceServer descartes_path_service_;
+  ros::ServiceServer failure_reason_service_;
   bool display_computed_paths_;
 
   // Cached values for checking if we need to re-initialize our descartes_model

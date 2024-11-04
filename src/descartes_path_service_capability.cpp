@@ -94,6 +94,9 @@ void MoveGroupDescartesPathService::initialize()
 
   descartes_path_service_ = root_node_handle_.advertiseService(move_group::CARTESIAN_PATH_SERVICE_NAME,
                                                                &MoveGroupDescartesPathService::computeService, this);
+
+  failure_reason_service_ = root_node_handle_.advertiseService("descartes_capability/get_failure_reason",
+                                                               &MoveGroupDescartesPathService::computeFailureReason, this);
 }
 
 void MoveGroupDescartesPathService::createDensePath(const Eigen::Isometry3d& start, const Eigen::Isometry3d& end,
@@ -330,7 +333,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   descartes_model_->setCheckCollisions(req.avoid_collisions);
 
   // Setup Descartes parameters
-  descartes_planner::DensePlanner descartes_planner;
+  descartes_planner = descartes_planner::DensePlanner();
   descartes_planner.initialize(descartes_model_);
 
   const robot_model::JointModelGroup* jmg;
@@ -448,17 +451,10 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   // Use Descartes to solve path
   bool valid_path = true;
   std::vector<descartes_core::TrajectoryPtPtr> descartes_result;
-  if (!descartes_planner.planPath(descartes_trajectory))
-  {
+  res.fraction = descartes_planner.planPath(descartes_trajectory);
+  if (res.fraction==0.0){
     valid_path = false;
-    ROS_INFO_STREAM_NAMED(name_, "Could not solve for a valid path.");
   }
-  else
-  {
-    if (verbose_debug_)
-      ROS_INFO_STREAM_NAMED(name_, "Found a valid path.");
-  }
-
   if (!descartes_planner.getPath(descartes_result))
   {
     valid_path = false;
@@ -468,6 +464,9 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   // removing current pose from descartes_result (only was there to minimize its difference)
   if (valid_path)
     descartes_result.erase(descartes_result.begin());
+  if (descartes_result.size()==0){
+    valid_path=false;
+  }
   if (valid_path && verbose_debug_)
     ROS_INFO_STREAM_NAMED(name_, "Full path length = " << descartes_result.size());
 
@@ -492,7 +491,8 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   robot_trajectory::RobotTrajectory robot_trajectory(context_->planning_scene_monitor_->getRobotModel(),
                                                      req.group_name);
 
-  res.fraction = copyDescartesResultToRobotTrajectory(descartes_result, req, robot_trajectory);
+  res.fraction *= copyDescartesResultToRobotTrajectory(descartes_result, req, robot_trajectory);
+
 
   // Time trajectory
   trajectory_processing::TimeOptimalTrajectoryGeneration time_param;
@@ -520,6 +520,17 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
     visual_tools_->publishTrajectoryPath(robot_trajectory, false);
 
   res.error_code.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
+  return true;
+}
+
+
+bool MoveGroupDescartesPathService::computeFailureReason(descartes_capability::GetFailureReason::Request& req,
+                                                         descartes_capability::GetFailureReason::Response& res)
+{
+  ROS_WARN("Received request to get failure reason");
+  std::stringstream ss;
+  descartes_planner.getPlanningGraph().getFailingPointReason(ss);
+  res.failure_reason = ss.str();
   return true;
 }
 
