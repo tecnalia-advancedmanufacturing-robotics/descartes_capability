@@ -33,7 +33,11 @@ find_package(Eigen3 REQUIRED)
 
 
 add_service_files(DIRECTORY srv FILES GetFailureReason.srv)
-generate_messages()
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+)
 
 ###################################
 ## Catkin specific configuration ##
@@ -80,6 +84,7 @@ add_library(
 
 add_dependencies(
   ${PROJECT_NAME}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
 )
 
