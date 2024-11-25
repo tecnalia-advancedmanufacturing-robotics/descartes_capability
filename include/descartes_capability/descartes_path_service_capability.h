@@ -133,6 +133,8 @@ private:
   std::string current_world_frame_;
   std::string current_tcp_frame_;
 
+  std::string failure_reason_;
+
   // For Rviz visualizations
   moveit_visual_tools::MoveItVisualToolsPtr visual_tools_;
 };
