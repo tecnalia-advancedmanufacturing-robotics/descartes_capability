@@ -251,6 +251,8 @@ double MoveGroupDescartesPathService::copyDescartesResultToRobotTrajectory(
 
     if (req.jump_threshold > 0.0 && max_delta > req.jump_threshold)
     {
+      failure_reason_ = "Jump threshold of " + std::to_string(req.jump_threshold) + " exceeded with requested jump of " +
+                        std::to_string(max_delta);
       ROS_WARN_NAMED(name_, "Jump threshold of %.3f exceeded with requested jump of %.3f", req.jump_threshold,
                      max_delta);
       fraction = (double)i / (double)descartes_result.size();
@@ -315,7 +317,17 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   nh_.param<double>("descartes_params/pitch_orientation_tolerance", pitch_orientation_tolerance_, 0.0);
   nh_.param<double>("descartes_params/yaw_orientation_tolerance", yaw_orientation_tolerance_, 0.0);
   nh_.param<double>("descartes_params/orientation_tolerance_inc", orientation_tolerance_increment_, 0.0);
+  if (req.jump_threshold < std::numeric_limits<double>::epsilon()){
+    if (nh_.hasParam("descartes_params/default_jump_threshold")){
+      nh_.getParam("descartes_params/default_jump_threshold", req.jump_threshold);
+    }
+    else{
+      req.jump_threshold = 1.0;
+      ROS_WARN("No jump threshold provided and no default value set on descartes_params/default_jump_threshold. Using default value of 1.0");
+    }
+  }
 
+  failure_reason_ = "";
   // Get most up to date planning scene information
   context_->planning_scene_monitor_->updateFrameTransforms();
 
@@ -528,6 +540,11 @@ bool MoveGroupDescartesPathService::computeFailureReason(descartes_capability::G
                                                          descartes_capability::GetFailureReason::Response& res)
 {
   ROS_WARN("Received request to get failure reason");
+  if (!failure_reason_.empty())
+  {
+    res.failure_reason = failure_reason_;
+    return true;
+  }
   std::stringstream ss;
   descartes_planner.getPlanningGraph().getFailingPointReason(ss);
   res.failure_reason = ss.str();
