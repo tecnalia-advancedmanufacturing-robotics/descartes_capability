@@ -322,7 +322,7 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
       nh_.getParam("descartes_params/default_jump_threshold", req.jump_threshold);
     }
     else{
-      req.jump_threshold = 0.1;
+      req.jump_threshold = 1.0;
       ROS_WARN("No jump threshold provided and no default value set on descartes_params/default_jump_threshold. Using default value of 0.1");
     }
   }
