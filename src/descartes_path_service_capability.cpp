@@ -246,15 +246,33 @@ double MoveGroupDescartesPathService::copyDescartesResultToRobotTrajectory(
       printJoints(next_positions);
 
     double max_delta = 0.0;
+    std::size_t max_delta_index = 0;
     if (!first_point)
-      max_delta = computeMaxJointDelta(next_positions, last_positions);
+    {
+      for (std::size_t ix = 0; ix < next_positions.size(); ++ix)
+      {
+        double delta = std::abs(next_positions[ix] - last_positions[ix]);
+if (delta > max_delta)
+        {
+          max_delta = delta;
+          max_delta_index = ix;
+        }
+      }
+    }
 
     if (req.jump_threshold > 0.0 && max_delta > req.jump_threshold)
     {
-      failure_reason_ = "Jump threshold of " + std::to_string(req.jump_threshold) + " exceeded with requested jump of " +
-                        std::to_string(max_delta);
-      ROS_WARN_NAMED(name_, "Jump threshold of %.3f exceeded with requested jump of %.3f", req.jump_threshold,
-                     max_delta);
+      std::stringstream ss;
+      ss << "Jump threshold of " << req.jump_threshold << " exceeded at step "<<i<<" of " <<descartes_result.size()<<" with joint " << max_delta_index << " jump from "
+         << last_positions[max_delta_index] << " to " << next_positions[max_delta_index] << std::endl;
+      ss << "From values: " << std::endl;
+      for (std::size_t ix = 0; ix < last_positions.size(); ++ix)
+        ss << last_positions[ix] * 180. / M_PI << ", ";
+      ss << std::endl << "To values: " << std::endl;
+      for (std::size_t ix = 0; ix < next_positions.size(); ++ix)
+        ss << next_positions[ix] * 180. / M_PI << ", ";
+      failure_reason_ = ss.str();
+      ROS_WARN_NAMED(name_, failure_reason_.c_str());
       fraction = (double)i / (double)descartes_result.size();
       joint_threshold_exceeded = true;
     }
