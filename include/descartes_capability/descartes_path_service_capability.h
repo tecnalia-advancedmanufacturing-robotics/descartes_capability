@@ -53,6 +53,7 @@
 #include <descartes_planner/sparse_planner.h>
 #include <descartes_trajectory/axial_symmetric_pt.h>
 #include <descartes_trajectory/cart_trajectory_pt.h>
+#include <descartes_capability/srv/get_failure_reason.hpp>
 
 // Eigen
 #include <tf2_eigen/tf2_eigen.hpp>
@@ -74,6 +75,10 @@ private:
   bool computeService(const std::shared_ptr<rmw_request_id_t>& request_header,
                       const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Request>& req,
                       const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Response>& res);
+
+  bool computeFailureReason(const std::shared_ptr<rmw_request_id_t>& request_header,
+                      const std::shared_ptr<descartes_capability::srv::GetFailureReason::Request>& req,
+                      const std::shared_ptr<descartes_capability::srv::GetFailureReason::Response>& res);
 
   /** \brief Initializes descartes_model_ with new parameters **/
   bool initializeDescartesModel(const std::string& group_name, const std::string& world_frame,
@@ -107,6 +112,7 @@ private:
 
   // For setting up and generating Cartesian trajectories with Descartes
   descartes_core::RobotModelPtr descartes_model_;
+  descartes_planner::DensePlanner descartes_planner;
 
   // Params loaded from server
   double positional_tolerance_;
@@ -120,12 +126,15 @@ private:
   bool visual_debug_;
 
   rclcpp::Service<moveit_msgs::srv::GetCartesianPath>::SharedPtr descartes_path_service_;
+  rclcpp::Service<descartes_capability::srv::GetFailureReason>::SharedPtr failure_reason_service_;
   bool display_computed_paths_;
 
   // Cached values for checking if we need to re-initialize our descartes_model
   std::string current_group_name_;
   std::string current_world_frame_;
   std::string current_tcp_frame_;
+
+  std::string failure_reason_;
 
   // For Rviz visualizations
   moveit_visual_tools::MoveItVisualToolsPtr visual_tools_;

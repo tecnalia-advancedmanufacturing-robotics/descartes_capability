@@ -33,6 +33,12 @@ endforeach()
 find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
 
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/GetFailureReason.srv"
+)
+
+
+rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
 ###################################
 ## Catkin specific configuration ##
 ###################################
@@ -46,18 +52,20 @@ find_package(Eigen3 REQUIRED)
 set(INCLUDE_DIRS include ${ament_cmake_INCLUDE_DIRS})
 include_directories(${INCLUDE_DIRS})
 # Declare a C++ library with project namespace to avoid naming collision
-add_library(${PROJECT_NAME} SHARED src/descartes_path_service_capability.cpp)
+add_library(${PROJECT_NAME}_target SHARED src/descartes_path_service_capability.cpp)
 
-ament_target_dependencies(${PROJECT_NAME} ${AMENT_DEPENDENCIES})
+ament_target_dependencies(${PROJECT_NAME}_target ${AMENT_DEPENDENCIES})
+
 # Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME} ${LIBS} ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}_target ${LIBS} ${Boost_LIBRARIES}
+  "${cpp_typesupport_target}")
 
 #############
 ## Install ##
 #############
 
 # Mark executables and/or libraries for installation
-install(TARGETS ${PROJECT_NAME}
+install(TARGETS ${PROJECT_NAME}_target
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME})
@@ -106,6 +114,6 @@ ament_export_dependencies(descartes_planner)
 ament_export_dependencies(moveit_ros_planning)
 ament_export_dependencies(moveit_ros_move_group)
 ament_export_include_directories(${INCLUDE_DIRS})
-ament_export_libraries(${PROJECT_NAME} ${LIBS})
+ament_export_libraries(${PROJECT_NAME}_target ${LIBS})
 
 ament_package()

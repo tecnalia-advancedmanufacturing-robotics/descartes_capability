@@ -102,6 +102,15 @@ void MoveGroupDescartesPathService::initialize()
              const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Response>& res) -> bool {
         return computeService(req_id, req, res);
       });
+
+  failure_reason_service_ = context_->moveit_cpp_->getNode()->create_service<descartes_capability::srv::GetFailureReason>(
+      "descartes_capability/get_failure_reason",
+      [this](const std::shared_ptr<rmw_request_id_t>& req_id,
+             const std::shared_ptr<descartes_capability::srv::GetFailureReason::Request>& req,
+             const std::shared_ptr<descartes_capability::srv::GetFailureReason::Response>& res) -> bool {
+        return computeFailureReason(req_id, req, res);
+      });
+
 }
 
 void MoveGroupDescartesPathService::createDensePath(const Eigen::Isometry3d& start, const Eigen::Isometry3d& end,
@@ -258,8 +267,9 @@ double MoveGroupDescartesPathService::copyDescartesResultToRobotTrajectory(
 
     if (req->jump_threshold > 0.0 && max_delta > req->jump_threshold)
     {
-      RCLCPP_WARN(context_->moveit_cpp_->getNode()->get_logger(), "Jump threshold of %.3f exceeded with requested jump of %.3f", req->jump_threshold,
-                  max_delta);
+      failure_reason_ = "Jump threshold of " + std::to_string(req->jump_threshold) + " exceeded with requested jump of " +
+                        std::to_string(max_delta);
+      RCLCPP_WARN(context_->moveit_cpp_->getNode()->get_logger(), failure_reason_.c_str());
       fraction = (double)i / (double)descartes_result.size();
       joint_threshold_exceeded = true;
     }
@@ -324,14 +334,22 @@ bool MoveGroupDescartesPathService::computeService(
   context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/pitch_orientation_tolerance", pitch_orientation_tolerance_, 0.0);
   context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/yaw_orientation_tolerance", yaw_orientation_tolerance_, 0.0);
   context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/orientation_tolerance_inc", orientation_tolerance_increment_, 0.0);
+  if (req->jump_threshold < std::numeric_limits<double>::epsilon()){
+    req->jump_threshold = 1.0;
+  }
 
+  failure_reason_ = "";
   // Get most up to date planning scene information
   context_->planning_scene_monitor_->updateFrameTransforms();
 
   const std::string& default_frame = context_->planning_scene_monitor_->getRobotModel()->getModelFrame();
 
   // TODO: check if this results in double transform.
-  std::string world_frame = (req->header.frame_id.empty() ? default_frame : req->header.frame_id);
+  const std::string& base_frame = context_->planning_scene_monitor_->getRobotModel()
+                                      ->getJointModelGroup(req->group_name)
+                                      ->getSolverInstance()
+                                      ->getBaseFrame();
+  std::string world_frame = base_frame;
   if (current_group_name_ != req->group_name || current_world_frame_ != world_frame ||
       current_tcp_frame_ != req->link_name)
   {
@@ -341,7 +359,7 @@ bool MoveGroupDescartesPathService::computeService(
   descartes_model_->setCheckCollisions(req->avoid_collisions);
 
   // Setup Descartes parameters
-  descartes_planner::DensePlanner descartes_planner;
+  descartes_planner = descartes_planner::DensePlanner();
   descartes_planner.initialize(descartes_model_);
 
   const moveit::core::JointModelGroup* jmg;
@@ -392,20 +410,19 @@ bool MoveGroupDescartesPathService::computeService(
   }
 
   bool no_transform =
-      req->header.frame_id.empty() || moveit::core::Transforms::sameFrame(req->header.frame_id, default_frame);
+      req->header.frame_id.empty() || moveit::core::Transforms::sameFrame(req->header.frame_id, base_frame);
 
-  EigenSTL::vector_Isometry3d waypoints(req->waypoints.size() + 1);
-  waypoints[0] = current_pose;
+  EigenSTL::vector_Isometry3d waypoints(req->waypoints.size());
   if (no_transform)
   {
     for (std::size_t i = 0; i < req->waypoints.size(); ++i)
-      tf2::fromMsg(req->waypoints[i], waypoints[i + 1]);
+      tf2::fromMsg(req->waypoints[i], waypoints[i]);
   }
   else
   {
-    if (!transformWaypointsToFrame(req, default_frame, waypoints))
+    if (!transformWaypointsToFrame(req, base_frame, waypoints))
     {
-      RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Error encountered transforming waypoints to frame '%s'", default_frame.c_str());
+      RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Error encountered transforming waypoints to frame '%s'", base_frame.c_str());
       res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FRAME_TRANSFORM_FAILURE;
       return true;
     }
@@ -425,7 +442,7 @@ bool MoveGroupDescartesPathService::computeService(
               "Attempting to follow %u waypoints for link '%s' using a step of %lf m+rev and jump threshold %lf (in "
               "%s reference frame)",
               (unsigned int)waypoints.size(), link_name.c_str(), req->max_step, req->jump_threshold,
-              global_frame ? "global" : "link");
+              global_frame ? req->header.frame_id.c_str() : "link");
 
   // For each set of sequential waypoints we need to ensure that we do not exceed the req->max_step so we resample
   EigenSTL::vector_Isometry3d dense_waypoints;
@@ -452,6 +469,8 @@ bool MoveGroupDescartesPathService::computeService(
   // dense trajectory. This tells descartes to plan from this particular configuration rather
   // than just the starting end effector pose.
   std::vector<descartes_core::TrajectoryPtPtr> descartes_trajectory;
+  // This adds the current joints as the first pose, only to minimize the difference from the current pose,
+  // should be later removed from descartes_result
   descartes_core::TrajectoryPtPtr descartes_point =
       descartes_core::TrajectoryPtPtr(new descartes_trajectory::JointTrajectoryPt(current_joints));
   descartes_trajectory.push_back(descartes_point);
@@ -460,8 +479,8 @@ bool MoveGroupDescartesPathService::computeService(
   // Use Descartes to solve path
   bool valid_path = true;
   std::vector<descartes_core::TrajectoryPtPtr> descartes_result;
-  if (!descartes_planner.planPath(descartes_trajectory))
-  {
+  res->fraction = descartes_planner.planPath(descartes_trajectory);
+  if (res->fraction==0.0){
     valid_path = false;
     RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Could not solve for a valid path.");
   }
@@ -470,13 +489,18 @@ bool MoveGroupDescartesPathService::computeService(
     if (verbose_debug_)
       RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Found a valid path.");
   }
-
   if (!descartes_planner.getPath(descartes_result))
   {
     valid_path = false;
     RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Could not retrieve path.");
   }
 
+  // removing current pose from descartes_result (only was there to minimize its difference)
+  if (valid_path)
+    descartes_result.erase(descartes_result.begin());
+  if (descartes_result.size()==0){
+    valid_path=false;
+  }
   if (valid_path && verbose_debug_)
     RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Full path length = " << descartes_result.size());
 
@@ -491,7 +515,8 @@ bool MoveGroupDescartesPathService::computeService(
   robot_trajectory::RobotTrajectory robot_trajectory(context_->planning_scene_monitor_->getRobotModel(),
                                                      req->group_name);
 
-  res->fraction = copyDescartesResultToRobotTrajectory(descartes_result, req, robot_trajectory);
+  res->fraction *= copyDescartesResultToRobotTrajectory(descartes_result, req, robot_trajectory);
+
 
   // Time trajectory
   trajectory_processing::TimeOptimalTrajectoryGeneration time_param;
@@ -524,6 +549,25 @@ bool MoveGroupDescartesPathService::computeService(
   res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::SUCCESS;
   return true;
 }
+
+
+bool MoveGroupDescartesPathService::computeFailureReason(
+            const std::shared_ptr<rmw_request_id_t>& req_id,
+             const std::shared_ptr<descartes_capability::srv::GetFailureReason::Request>& req,
+             const std::shared_ptr<descartes_capability::srv::GetFailureReason::Response>& res)
+{
+  RCLCPP_WARN(context_->moveit_cpp_->getNode()->get_logger(), "printDelta received vectors of mismatched size");
+  if (!failure_reason_.empty())
+  {
+    res->failure_reason = failure_reason_;
+    return true;
+  }
+  std::stringstream ss;
+  descartes_planner.getPlanningGraph().getFailingPointReason(ss);
+  res->failure_reason = ss.str();
+  return true;
+}
+
 
 void MoveGroupDescartesPathService::printDelta(const std::vector<double>& joints1, const std::vector<double>& joints2)
 {
