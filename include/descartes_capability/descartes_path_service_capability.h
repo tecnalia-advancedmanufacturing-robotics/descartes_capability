@@ -76,7 +76,7 @@ private:
                       const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Request>& req,
                       const std::shared_ptr<moveit_msgs::srv::GetCartesianPath::Response>& res);
 
-  bool computeFailureReason(const std::shared_ptr<rmw_request_id_t>& request_header,
+  void computeFailureReason(const std::shared_ptr<rmw_request_id_t>& request_header,
                       const std::shared_ptr<descartes_capability::srv::GetFailureReason::Request>& req,
                       const std::shared_ptr<descartes_capability::srv::GetFailureReason::Response>& res);
 

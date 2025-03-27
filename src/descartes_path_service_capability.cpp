@@ -107,8 +107,8 @@ void MoveGroupDescartesPathService::initialize()
       "descartes_capability/get_failure_reason",
       [this](const std::shared_ptr<rmw_request_id_t>& req_id,
              const std::shared_ptr<descartes_capability::srv::GetFailureReason::Request>& req,
-             const std::shared_ptr<descartes_capability::srv::GetFailureReason::Response>& res) -> bool {
-        return computeFailureReason(req_id, req, res);
+             const std::shared_ptr<descartes_capability::srv::GetFailureReason::Response>& res) -> void {
+        computeFailureReason(req_id, req, res);
       });
 
 }
@@ -551,21 +551,22 @@ bool MoveGroupDescartesPathService::computeService(
 }
 
 
-bool MoveGroupDescartesPathService::computeFailureReason(
+void MoveGroupDescartesPathService::computeFailureReason(
             const std::shared_ptr<rmw_request_id_t>& req_id,
              const std::shared_ptr<descartes_capability::srv::GetFailureReason::Request>& req,
              const std::shared_ptr<descartes_capability::srv::GetFailureReason::Response>& res)
 {
-  RCLCPP_WARN(context_->moveit_cpp_->getNode()->get_logger(), "printDelta received vectors of mismatched size");
+  (void)req_id;
+  RCLCPP_WARN(context_->moveit_cpp_->getNode()->get_logger(), "computeFailureReason called");
   if (!failure_reason_.empty())
   {
     res->failure_reason = failure_reason_;
-    return true;
+    return;
   }
   std::stringstream ss;
   descartes_planner.getPlanningGraph().getFailingPointReason(ss);
   res->failure_reason = ss.str();
-  return true;
+  RCLCPP_WARN(context_->moveit_cpp_->getNode()->get_logger(), "Failure reason: %s", res->failure_reason.c_str());
 }
 
 
