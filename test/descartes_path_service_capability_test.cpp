@@ -54,13 +54,13 @@
 #include <gtest/gtest.h>
 
 // For listing capabilities
-#include <moveit/move_group/move_group_capability.h>
+#include <moveit/move_group/move_group_capability.hpp>
 #include <pluginlib/class_loader.hpp>
 
 // For loading panda robot description
-#include <moveit/robot_model/robot_model.h>
-#include <moveit/planning_scene_monitor/planning_scene_monitor.h>
-#include <moveit/utils/robot_model_test_utils.h>
+#include <moveit/robot_model/robot_model.hpp>
+#include <moveit/planning_scene_monitor/planning_scene_monitor.hpp>
+#include <moveit/utils/robot_model_test_utils.hpp>
 
 namespace descartes_capability
 {

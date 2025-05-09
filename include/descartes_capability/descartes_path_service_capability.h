@@ -42,7 +42,7 @@
 #define MOVEIT_MOVE_GROUP_DESCARTES_PATH_SERVICE_CAPABILITY_
 
 #include <unordered_map>
-#include <moveit/move_group/move_group_capability.h>
+#include <moveit/move_group/move_group_capability.hpp>
 #include "moveit_msgs/srv/get_cartesian_path.hpp"
 
 // Descartes

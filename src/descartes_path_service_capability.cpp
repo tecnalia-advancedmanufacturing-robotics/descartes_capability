@@ -40,17 +40,17 @@
 
 #include <descartes_capability/descartes_path_service_capability.h>
 #include <tf2_eigen/tf2_eigen.hpp>
-#include <moveit/moveit_cpp/moveit_cpp.h>
-#include <moveit/collision_detection/collision_tools.h>
-#include <moveit/kinematic_constraints/utils.h>
-#include <moveit/move_group/capability_names.h>
-#include <moveit/planning_pipeline/planning_pipeline.h>
-#include <moveit/planning_scene_monitor/planning_scene_monitor.h>
-#include <moveit/robot_state/conversions.h>
-#include <moveit/trajectory_processing/iterative_time_parameterization.h>
-#include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
+#include <moveit/moveit_cpp/moveit_cpp.hpp>
+#include <moveit/collision_detection/collision_tools.hpp>
+#include <moveit/kinematic_constraints/utils.hpp>
+#include <moveit/move_group/capability_names.hpp>
+#include <moveit/planning_pipeline/planning_pipeline.hpp>
+#include <moveit/planning_scene_monitor/planning_scene_monitor.hpp>
+#include <moveit/robot_state/conversions.hpp>
+// #include <moveit/trajectory_processing/iterative_time_parameterization.hpp>
+#include <moveit/trajectory_processing/time_optimal_trajectory_generation.hpp>
 #include <rviz_visual_tools/rviz_visual_tools.hpp>
-// #include <moveit/trajectory_processing/limit_cartesian_speed.h>
+// #include <moveit/trajectory_processing/limit_cartesian_speed.hpp>
 #include <moveit_msgs/msg/display_trajectory.h>
 // #include <moveit/utils/logger.hpp>
 
@@ -91,7 +91,7 @@ void MoveGroupDescartesPathService::initialize()
 
   // For displaying the computed trajectory
   visual_tools_->loadSharedRobotState();
-  visual_tools_->loadTrajectoryPub(planning_pipeline::PlanningPipeline::DISPLAY_PATH_TOPIC, false);
+  visual_tools_->loadTrajectoryPub("display_planned_path", false);
 
   // descartes_path_service_ = context_->moveit_cpp_->getNode().advertiseService(move_group::CARTESIAN_PATH_SERVICE_NAME,
   //  &MoveGroupDescartesPathService::computeService, this);

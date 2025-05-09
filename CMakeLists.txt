@@ -13,6 +13,7 @@ add_definitions(-W -Wall -Wextra -Wwrite-strings -Wunreachable-code
 find_package(ament_cmake REQUIRED)
 set(AMENT_DEPENDENCIES
   descartes_core
+  rosidl_default_generators
   descartes_moveit
   descartes_planner
   descartes_trajectory
