@@ -75,8 +75,8 @@ void MoveGroupDescartesPathService::initialize()
 {
   // Get parameters from param server
   const std::string node_name = "MoveGroupDescartesPathService";
-  context_->moveit_cpp_->getNode()->get_parameter_or<bool>("descartes_params/debug/verbose", verbose_debug_, false);
-  context_->moveit_cpp_->getNode()->get_parameter_or<bool>("descartes_params/debug/visual", visual_debug_, false);
+  context_->moveit_cpp_->getNode()->get_parameter_or<bool>("descartes_params.debug.verbose", verbose_debug_, false);
+  context_->moveit_cpp_->getNode()->get_parameter_or<bool>("descartes_params.debug.visual", visual_debug_, false);
 
   context_->planning_scene_monitor_->updateFrameTransforms();
 
@@ -328,12 +328,12 @@ bool MoveGroupDescartesPathService::computeService(
 
   // Since Descartes takes in more parameters than are available in the moveit_msgs::srv::GetCartesianPath::Request,
   // we provide rosparam interfaces that will read in additional prameters from the parameter server.
-  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/positional_tolerance", positional_tolerance_, 0.0);
-  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/positional_tolerance_inc", positional_tolerance_increment_, 0.0);
-  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/roll_orientation_tolerance", roll_orientation_tolerance_, 0.0);
-  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/pitch_orientation_tolerance", pitch_orientation_tolerance_, 0.0);
-  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/yaw_orientation_tolerance", yaw_orientation_tolerance_, 0.0);
-  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params/orientation_tolerance_inc", orientation_tolerance_increment_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.positional_tolerance", positional_tolerance_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.positional_tolerance_inc", positional_tolerance_increment_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.roll_orientation_tolerance", roll_orientation_tolerance_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.pitch_orientation_tolerance", pitch_orientation_tolerance_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.yaw_orientation_tolerance", yaw_orientation_tolerance_, 0.0);
+  context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.orientation_tolerance_inc", orientation_tolerance_increment_, 0.0);
   if (req->jump_threshold < std::numeric_limits<double>::epsilon()){
     req->jump_threshold = 1.0;
   }
