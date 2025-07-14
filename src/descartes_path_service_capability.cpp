@@ -252,7 +252,7 @@ double MoveGroupDescartesPathService::copyDescartesResultToRobotTrajectory(
       for (std::size_t ix = 0; ix < next_positions.size(); ++ix)
       {
         double delta = std::abs(next_positions[ix] - last_positions[ix]);
-if (delta > max_delta)
+        if (delta > max_delta)
         {
           max_delta = delta;
           max_delta_index = ix;
@@ -264,7 +264,7 @@ if (delta > max_delta)
     {
       std::stringstream ss;
       ss << "Jump threshold of " << req.jump_threshold << " exceeded at step "<<i<<" of " <<descartes_result.size()<<" with joint " << max_delta_index << " jump from "
-         << last_positions[max_delta_index] << " to " << next_positions[max_delta_index] << std::endl;
+        << last_positions[max_delta_index] << " to " << next_positions[max_delta_index] << std::endl;
       ss << "From values: " << std::endl;
       for (std::size_t ix = 0; ix < last_positions.size(); ++ix)
         ss << last_positions[ix] * 180. / M_PI << ", ";
