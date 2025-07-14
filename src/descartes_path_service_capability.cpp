@@ -360,7 +360,14 @@ bool MoveGroupDescartesPathService::computeService(
 
   // Setup Descartes parameters
   descartes_planner = descartes_planner::DensePlanner();
-  descartes_planner.initialize(descartes_model_);
+
+  auto custom_cost_fn = [this] (const double* a, const double* b) {
+    double cost = 0.0;
+    for (int i = 0; i < descartes_model_->getDOF(); ++i) cost += std::abs(a[i] - b[i]);
+    return cost;
+  };
+  
+  descartes_planner.initialize(descartes_model_, custom_cost_fn);
 
   const moveit::core::JointModelGroup* jmg;
   std::vector<double> current_joints;
