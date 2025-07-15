@@ -62,6 +62,8 @@ MoveGroupDescartesPathService::MoveGroupDescartesPathService()
   , pitch_orientation_tolerance_(0.0)
   , yaw_orientation_tolerance_(0.0)
   , orientation_tolerance_increment_(0.0)
+  , limit_penalty_weight_(0.0)
+  , limit_safety_margin_(0.0)
   , verbose_debug_(false)
   , visual_debug_(false)
   , display_computed_paths_(true)
@@ -335,6 +337,8 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   nh_.param<double>("descartes_params/pitch_orientation_tolerance", pitch_orientation_tolerance_, 0.0);
   nh_.param<double>("descartes_params/yaw_orientation_tolerance", yaw_orientation_tolerance_, 0.0);
   nh_.param<double>("descartes_params/orientation_tolerance_inc", orientation_tolerance_increment_, 0.0);
+  nh_.param<double>("descartes_params/limit_penalty_weight", limit_penalty_weight_, 0.0);
+  nh_.param<double>("descartes_params/limit_safety_margin", limit_safety_margin_, 0.0);
   if (req.jump_threshold < std::numeric_limits<double>::epsilon()){
     if (nh_.hasParam("descartes_params/default_jump_threshold")){
       nh_.getParam("descartes_params/default_jump_threshold", req.jump_threshold);
@@ -344,6 +348,9 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
       ROS_WARN("No jump threshold provided and no default value set on descartes_params/default_jump_threshold. Using default value of 1.0");
     }
   }
+
+  ROS_INFO_NAMED(name_, "Joint limit safety with limit_penalty_weight=%.3f and limit_safety_margin=%.3f", 
+                      limit_penalty_weight_, limit_safety_margin_);
 
   failure_reason_ = "";
   // Get most up to date planning scene information
@@ -362,19 +369,9 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
   }
   descartes_model_->setCheckCollisions(req.avoid_collisions);
 
-  // Setup Descartes parameters
-  descartes_planner = descartes_planner::DensePlanner();
-
-  auto custom_cost_fn = [this] (const double* a, const double* b) {
-    double cost = 0.0;
-    for (int i = 0; i < descartes_model_->getDOF(); ++i) cost += std::abs(a[i] - b[i]);
-    return cost;
-  };
-  
-  descartes_planner.initialize(descartes_model_, custom_cost_fn);
-
   const robot_model::JointModelGroup* jmg;
   std::vector<double> current_joints;
+  std::vector<double> joint_min_limits, joint_max_limits;
   {
     robot_state::RobotState start_state =
         planning_scene_monitor::LockedPlanningSceneRO(context_->planning_scene_monitor_)->getCurrentState();
@@ -389,7 +386,73 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
     }
     // Copy current joint positions from robot state to a current_joints vector for use outside of this scope
     start_state.copyJointGroupPositions(req.group_name, current_joints);
+
+    // Get bounds: single DOF joints
+    const std::vector<const robot_model::JointModel*>& joint_models = jmg->getActiveJointModels();
+    for (const auto* joint_model : joint_models)
+    {
+      const robot_model::VariableBounds& bounds = joint_model->getVariableBounds()[0];
+      joint_min_limits.push_back(bounds.min_position_);
+      joint_max_limits.push_back(bounds.max_position_);
+      ROS_INFO_NAMED(name_, "Joint %s: min=%.3f, max=%.3f", 
+                      joint_model->getName().c_str(), bounds.min_position_, bounds.max_position_);
+    }
   }  // Planning scene lock released
+
+  if (joint_min_limits.size() != descartes_model_->getDOF() || joint_max_limits.size() != descartes_model_->getDOF())
+  {
+    ROS_ERROR_NAMED(name_, "Joint limits size (min: %zu, max: %zu) different from the descates model (%d).", 
+                    joint_min_limits.size(), joint_max_limits.size(), descartes_model_->getDOF());
+    res.error_code.val = moveit_msgs::MoveItErrorCodes::FAILURE;
+    return true;
+  }
+
+  auto custom_cost_fn = [this, joint_min_limits, joint_max_limits]
+                        (const double* a, const double* b) {
+    double cost = 0.0;
+
+    for (int i = 0; i < descartes_model_->getDOF(); ++i)
+    {
+      cost += std::abs(a[i] - b[i]);
+    }
+
+    // Add penalty if close to joints limits
+    for (int i = 0; i < descartes_model_->getDOF(); ++i)
+    {
+      double joint_range = joint_max_limits[i] - joint_min_limits[i];
+      double safety_margin = std::min(this->limit_safety_margin_, joint_range * 0.1);
+
+      if(a[i] <= joint_min_limits[i] + safety_margin)
+      {
+        double distance_from_limit = a[i] - joint_min_limits[i];
+        double penalty = this->limit_penalty_weight_ * std::exp(- ( a[i] - joint_min_limits[i]) / safety_margin);
+        cost += penalty;
+      }
+      else if (a[i] >= joint_max_limits[i] - safety_margin)
+      {
+        double penalty = this->limit_penalty_weight_ * std::exp(- (joint_max_limits[i] - a[i]) / safety_margin);
+        cost += penalty;
+      }
+
+      if (b[i] <= joint_min_limits[i] + safety_margin)
+      {
+        double penalty = this->limit_penalty_weight_ * std::exp(- (b[i] - joint_min_limits[i]) / safety_margin);
+        cost += penalty;
+      }
+      else if (b[i] >= joint_max_limits[i] - safety_margin)
+      {
+        double penalty = this->limit_penalty_weight_ * std::exp(- (joint_max_limits[i] - b[i]) / safety_margin);
+        cost += penalty;
+      }
+    }
+
+    return cost;
+  };
+
+  // Setup Descartes parameters
+  descartes_planner = descartes_planner::DensePlanner();
+
+  descartes_planner.initialize(descartes_model_, custom_cost_fn);
 
   Eigen::Isometry3d current_pose;
   descartes_model_->getFK(current_joints, current_pose);

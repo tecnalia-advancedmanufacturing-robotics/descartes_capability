@@ -1,5 +1,4 @@
 move_group:
-
   disable_capabilities: move_group/MoveGroupCartesianPathService
   capabilities: descartes_capability/MoveGroupDescartesPathService
 
@@ -10,7 +9,8 @@ move_group:
     pitch_orientation_tolerance: 0.1
     yaw_orientation_tolerance: 0.0
     orientation_tolerance_inc: 0.1
-
+    limit_penalty_weight: 10.0
+    limit_safety_margin: 0.1
     debug:
       visual: false
       verbose: false
