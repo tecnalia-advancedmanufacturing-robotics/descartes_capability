@@ -349,9 +349,6 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
     }
   }
 
-  ROS_INFO_NAMED(name_, "Joint limit safety with limit_penalty_weight=%.3f and limit_safety_margin=%.3f", 
-                      limit_penalty_weight_, limit_safety_margin_);
-
   failure_reason_ = "";
   // Get most up to date planning scene information
   context_->planning_scene_monitor_->updateFrameTransforms();
@@ -394,14 +391,12 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
       const robot_model::VariableBounds& bounds = joint_model->getVariableBounds()[0];
       joint_min_limits.push_back(bounds.min_position_);
       joint_max_limits.push_back(bounds.max_position_);
-      ROS_INFO_NAMED(name_, "Joint %s: min=%.3f, max=%.3f", 
-                      joint_model->getName().c_str(), bounds.min_position_, bounds.max_position_);
     }
   }  // Planning scene lock released
 
   if (joint_min_limits.size() != descartes_model_->getDOF() || joint_max_limits.size() != descartes_model_->getDOF())
   {
-    ROS_ERROR_NAMED(name_, "Joint limits size (min: %zu, max: %zu) different from the descates model (%d).", 
+    ROS_ERROR_NAMED(name_, "Joint limits size (min: %zu, max: %zu) different from the descates model (%d).",
                     joint_min_limits.size(), joint_max_limits.size(), descartes_model_->getDOF());
     res.error_code.val = moveit_msgs::MoveItErrorCodes::FAILURE;
     return true;
@@ -424,25 +419,19 @@ bool MoveGroupDescartesPathService::computeService(moveit_msgs::GetCartesianPath
 
       if(a[i] <= joint_min_limits[i] + safety_margin)
       {
-        double distance_from_limit = a[i] - joint_min_limits[i];
-        double penalty = this->limit_penalty_weight_ * std::exp(- ( a[i] - joint_min_limits[i]) / safety_margin);
-        cost += penalty;
+        cost += this->limit_penalty_weight_ * std::exp(-(a[i] - joint_min_limits[i]) / safety_margin);
       }
       else if (a[i] >= joint_max_limits[i] - safety_margin)
       {
-        double penalty = this->limit_penalty_weight_ * std::exp(- (joint_max_limits[i] - a[i]) / safety_margin);
-        cost += penalty;
+        cost += this->limit_penalty_weight_ * std::exp(- (joint_max_limits[i] - a[i]) / safety_margin);;
       }
-
       if (b[i] <= joint_min_limits[i] + safety_margin)
       {
-        double penalty = this->limit_penalty_weight_ * std::exp(- (b[i] - joint_min_limits[i]) / safety_margin);
-        cost += penalty;
+        cost += this->limit_penalty_weight_ * std::exp(- (b[i] - joint_min_limits[i]) / safety_margin);
       }
       else if (b[i] >= joint_max_limits[i] - safety_margin)
       {
-        double penalty = this->limit_penalty_weight_ * std::exp(- (joint_max_limits[i] - b[i]) / safety_margin);
-        cost += penalty;
+        cost += this->limit_penalty_weight_ * std::exp(- (joint_max_limits[i] - b[i]) / safety_margin);
       }
     }
 
