@@ -120,6 +120,8 @@ private:
   double pitch_orientation_tolerance_;
   double yaw_orientation_tolerance_;
   double orientation_tolerance_increment_;
+  double limit_penalty_weight_;
+  double limit_safety_margin_;
 
   bool verbose_debug_;
   bool visual_debug_;
