@@ -10,7 +10,7 @@ move_group:
     yaw_orientation_tolerance: 0.0
     orientation_tolerance_inc: 0.1
     limit_penalty_weight: 10.0
-    limit_safety_margin: 0.1
+    limit_safety_margin: 20.0
     debug:
       visual: false
       verbose: false
