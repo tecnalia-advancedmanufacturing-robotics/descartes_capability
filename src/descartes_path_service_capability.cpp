@@ -364,13 +364,14 @@ bool MoveGroupDescartesPathService::computeService(
 
   const moveit::core::JointModelGroup* jmg;
   std::vector<double> current_joints;
-  std::vector<double> joint_min_limits, joint_max_limits;
+  std::vector<double> joint_min_limits, joint_max_limits, descendant_weights;
   {
     moveit::core::RobotState start_state =
         planning_scene_monitor::LockedPlanningSceneRO(context_->planning_scene_monitor_)->getCurrentState();
     moveit::core::robotStateMsgToRobotState(req->start_state, start_state);
 
     jmg = start_state.getJointModelGroup(req->group_name);
+    auto urdf = start_state.getRobotModel()->getURDF();
     if (jmg == nullptr)
     {
       RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Invalid group name");
@@ -386,9 +387,20 @@ bool MoveGroupDescartesPathService::computeService(
     for (std::size_t i = 0; i < joint_models.size(); ++i)
     {
       const moveit::core::JointModel* joint_model = joint_models[i];
+      float descendant_weight = 10.0;
+      for (const auto& link : joint_model->getDescendantLinkModels())
+      {
+        auto urdf_link = urdf->getLink(link->getName());
+        if (urdf_link && urdf_link->inertial)
+        {
+          descendant_weight += urdf_link->inertial->mass;
+        }
+        // else: no inertial specified, assume mass 0
+      }
       const moveit::core::VariableBounds& bounds = (*bounds_vector[i])[0];
       joint_min_limits.push_back(bounds.min_position_);
       joint_max_limits.push_back(bounds.max_position_);
+      descendant_weights.push_back(descendant_weight);
     }
   }  // Planning scene lock released
 
@@ -398,13 +410,13 @@ bool MoveGroupDescartesPathService::computeService(
     return true;
   }
 
-  auto custom_cost_fn = [this, joint_min_limits, joint_max_limits]
+  auto custom_cost_fn = [this, joint_min_limits, joint_max_limits, descendant_weights]
                         (const double* a, const double* b) {
     double cost = 0.0;
 
     for (int i = 0; i < descartes_model_->getDOF(); ++i)
     {
-      cost += std::abs(a[i] - b[i]);
+      cost += std::abs(a[i] - b[i]) * descendant_weights[i];
     }
 
     // Add penalty if close to joints limits
