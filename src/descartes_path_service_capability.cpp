@@ -339,7 +339,7 @@ bool MoveGroupDescartesPathService::computeService(
   context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.limit_penalty_weight", limit_penalty_weight_, 0.0);
   context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.limit_safety_margin", limit_safety_margin_, 0.0);
   if (req->jump_threshold < std::numeric_limits<double>::epsilon()){
-    req->jump_threshold = 1.0;
+    context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.jump_threshold", req->jump_threshold, 1.0);
   }
 
   failure_reason_ = "";
