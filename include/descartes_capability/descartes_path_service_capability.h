@@ -123,6 +123,7 @@ private:
   double orientation_tolerance_increment_;
   double limit_penalty_weight_;
   double limit_safety_margin_;
+  bool remove_current_pose_;
 
   bool verbose_debug_;
   bool visual_debug_;
