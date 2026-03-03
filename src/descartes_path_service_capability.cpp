@@ -69,7 +69,7 @@ MoveGroupDescartesPathService::MoveGroupDescartesPathService()
   , verbose_debug_(false)
   , visual_debug_(false)
   , display_computed_paths_(true)
-  , remove_current_pose_(true)
+  , remove_current_pose_(false)
 {
   // logger_ = moveit::get_logger("moveit.ros.move_group.descartes_cartesian_path_service_capability");
 }
@@ -342,7 +342,7 @@ bool MoveGroupDescartesPathService::computeService(
   if (req->jump_threshold < std::numeric_limits<double>::epsilon()){
     context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.jump_threshold", req->jump_threshold, 1.0);
   }
-  context_->moveit_cpp_->getNode()->get_parameter_or<bool>("descartes_params.remove_current_pose", remove_current_pose_, true);
+  context_->moveit_cpp_->getNode()->get_parameter_or<bool>("descartes_params.remove_current_pose", remove_current_pose_, false);
 
   failure_reason_ = "";
   // Get most up to date planning scene information
