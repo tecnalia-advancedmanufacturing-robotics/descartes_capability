@@ -377,7 +377,7 @@ bool MoveGroupDescartesPathService::computeService(
     {
       RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Invalid group name");
       res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::INVALID_GROUP_NAME;
-      return true;
+      return false;
     }
     // Copy current joint positions from robot state to a current_joints vector for use outside of this scope
     start_state.copyJointGroupPositions(req->group_name, current_joints);
@@ -397,7 +397,7 @@ bool MoveGroupDescartesPathService::computeService(
   if (joint_min_limits.size() != descartes_model_->getDOF() || joint_max_limits.size() != descartes_model_->getDOF())
   {
     res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
-    return true;
+    return false;
   }
 
   auto custom_cost_fn = [this, joint_min_limits, joint_max_limits]
@@ -450,7 +450,7 @@ bool MoveGroupDescartesPathService::computeService(
     RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Must provide at least 1 input trajectory point %zu provided",
                  req->waypoints.size());
     res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
-    return true;
+    return false;
   }
 
   if (verbose_debug_)
@@ -486,7 +486,7 @@ bool MoveGroupDescartesPathService::computeService(
     {
       RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Error encountered transforming waypoints to frame '%s'", base_frame.c_str());
       res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FRAME_TRANSFORM_FAILURE;
-      return true;
+      return false;
     }
   }
 
@@ -496,7 +496,7 @@ bool MoveGroupDescartesPathService::computeService(
                                     "not "
                                     "specified (this value needs to be > 0)");
     res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
-    return true;
+    return false;
   }
 
   bool global_frame = !moveit::core::Transforms::sameFrame(link_name, req->header.frame_id);
@@ -571,7 +571,7 @@ bool MoveGroupDescartesPathService::computeService(
     RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Unable to generate a plan using Descartes.");
     res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
     res->fraction = 0.0;
-    return true;
+    return false;
   }
 
   robot_trajectory::RobotTrajectory robot_trajectory(context_->planning_scene_monitor_->getRobotModel(),
