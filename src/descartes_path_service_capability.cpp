@@ -605,6 +605,14 @@ bool MoveGroupDescartesPathService::computeService(
 
   robot_trajectory.getRobotTrajectoryMsg(res->solution);
 
+  // Additional final check
+  if (res->solution.joint_trajectory.points.size() < 2)
+  {
+    RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Planning failed! Cartesian trajectory has fewer than 2 points");
+    res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
+    return false;
+  }
+
   if (display_computed_paths_ && robot_trajectory.getWayPointCount() > 0)
     visual_tools_->publishTrajectoryPath(robot_trajectory, false);
 
