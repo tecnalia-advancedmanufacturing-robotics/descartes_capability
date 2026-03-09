@@ -69,6 +69,7 @@ MoveGroupDescartesPathService::MoveGroupDescartesPathService()
   , verbose_debug_(false)
   , visual_debug_(false)
   , display_computed_paths_(true)
+  , remove_current_pose_(false)
 {
   // logger_ = moveit::get_logger("moveit.ros.move_group.descartes_cartesian_path_service_capability");
 }
@@ -339,8 +340,9 @@ bool MoveGroupDescartesPathService::computeService(
   context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.limit_penalty_weight", limit_penalty_weight_, 0.0);
   context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.limit_safety_margin", limit_safety_margin_, 0.0);
   if (req->jump_threshold < std::numeric_limits<double>::epsilon()){
-    req->jump_threshold = 1.0;
+    context_->moveit_cpp_->getNode()->get_parameter_or<double>("descartes_params.jump_threshold", req->jump_threshold, 1.0);
   }
+  context_->moveit_cpp_->getNode()->get_parameter_or<bool>("descartes_params.remove_current_pose", remove_current_pose_, false);
 
   failure_reason_ = "";
   // Get most up to date planning scene information
@@ -364,19 +366,18 @@ bool MoveGroupDescartesPathService::computeService(
 
   const moveit::core::JointModelGroup* jmg;
   std::vector<double> current_joints;
-  std::vector<double> joint_min_limits, joint_max_limits, descendant_weights;
+  std::vector<double> joint_min_limits, joint_max_limits;
   {
     moveit::core::RobotState start_state =
         planning_scene_monitor::LockedPlanningSceneRO(context_->planning_scene_monitor_)->getCurrentState();
     moveit::core::robotStateMsgToRobotState(req->start_state, start_state);
 
     jmg = start_state.getJointModelGroup(req->group_name);
-    auto urdf = start_state.getRobotModel()->getURDF();
     if (jmg == nullptr)
     {
       RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Invalid group name");
       res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::INVALID_GROUP_NAME;
-      return true;
+      return false;
     }
     // Copy current joint positions from robot state to a current_joints vector for use outside of this scope
     start_state.copyJointGroupPositions(req->group_name, current_joints);
@@ -387,36 +388,25 @@ bool MoveGroupDescartesPathService::computeService(
     for (std::size_t i = 0; i < joint_models.size(); ++i)
     {
       const moveit::core::JointModel* joint_model = joint_models[i];
-      float descendant_weight = 10.0;
-      for (const auto& link : joint_model->getDescendantLinkModels())
-      {
-        auto urdf_link = urdf->getLink(link->getName());
-        if (urdf_link && urdf_link->inertial)
-        {
-          descendant_weight += urdf_link->inertial->mass;
-        }
-        // else: no inertial specified, assume mass 0
-      }
       const moveit::core::VariableBounds& bounds = (*bounds_vector[i])[0];
       joint_min_limits.push_back(bounds.min_position_);
       joint_max_limits.push_back(bounds.max_position_);
-      descendant_weights.push_back(descendant_weight);
     }
   }  // Planning scene lock released
 
   if (joint_min_limits.size() != descartes_model_->getDOF() || joint_max_limits.size() != descartes_model_->getDOF())
   {
     res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
-    return true;
+    return false;
   }
 
-  auto custom_cost_fn = [this, joint_min_limits, joint_max_limits, descendant_weights]
+  auto custom_cost_fn = [this, joint_min_limits, joint_max_limits]
                         (const double* a, const double* b) {
     double cost = 0.0;
 
     for (int i = 0; i < descartes_model_->getDOF(); ++i)
     {
-      cost += std::abs(a[i] - b[i]) * descendant_weights[i];
+      cost += std::abs(a[i] - b[i]);
     }
 
     // Add penalty if close to joints limits
@@ -460,7 +450,7 @@ bool MoveGroupDescartesPathService::computeService(
     RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Must provide at least 1 input trajectory point %zu provided",
                  req->waypoints.size());
     res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
-    return true;
+    return false;
   }
 
   if (verbose_debug_)
@@ -496,7 +486,7 @@ bool MoveGroupDescartesPathService::computeService(
     {
       RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Error encountered transforming waypoints to frame '%s'", base_frame.c_str());
       res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FRAME_TRANSFORM_FAILURE;
-      return true;
+      return false;
     }
   }
 
@@ -506,7 +496,7 @@ bool MoveGroupDescartesPathService::computeService(
                                     "not "
                                     "specified (this value needs to be > 0)");
     res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
-    return true;
+    return false;
   }
 
   bool global_frame = !moveit::core::Transforms::sameFrame(link_name, req->header.frame_id);
@@ -568,7 +558,7 @@ bool MoveGroupDescartesPathService::computeService(
   }
 
   // removing current pose from descartes_result (only was there to minimize its difference)
-  if (valid_path)
+  if (remove_current_pose_ && valid_path)
     descartes_result.erase(descartes_result.begin());
   if (descartes_result.size()==0){
     valid_path=false;
@@ -581,7 +571,7 @@ bool MoveGroupDescartesPathService::computeService(
     RCLCPP_INFO_STREAM(context_->moveit_cpp_->getNode()->get_logger(), "Unable to generate a plan using Descartes.");
     res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
     res->fraction = 0.0;
-    return true;
+    return false;
   }
 
   robot_trajectory::RobotTrajectory robot_trajectory(context_->planning_scene_monitor_->getRobotModel(),
@@ -614,6 +604,14 @@ bool MoveGroupDescartesPathService::computeService(
   }
 
   robot_trajectory.getRobotTrajectoryMsg(res->solution);
+
+  // Additional final check
+  if (res->solution.joint_trajectory.points.size() < 2)
+  {
+    RCLCPP_ERROR(context_->moveit_cpp_->getNode()->get_logger(), "Planning failed! Cartesian trajectory has fewer than 2 points");
+    res->error_code.val = moveit_msgs::msg::MoveItErrorCodes::FAILURE;
+    return false;
+  }
 
   if (display_computed_paths_ && robot_trajectory.getWayPointCount() > 0)
     visual_tools_->publishTrajectoryPath(robot_trajectory, false);
